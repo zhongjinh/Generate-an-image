@@ -8,9 +8,8 @@ import base64
 import hashlib
 import hmac
 import json
-import os
 
-JWT_SECRET = os.environ.get("JWT_SECRET", "diagram-gen-local-secret-change-in-production")
+from backend.config import JWT_SECRET
 
 
 def hash_password(password: str) -> str:

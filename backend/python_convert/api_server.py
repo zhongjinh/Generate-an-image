@@ -6,18 +6,16 @@ Python HTTP 接口服务 - 供 Cloudflare Worker 调用
 """
 
 import json
-import os
 import sys
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 
-# 加入当前目录到 path
-sys.path.insert(0, str(Path(__file__).parent))
-from json2xml import convert, BUILDERS
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from backend.python_convert import convert, BUILDERS
+from backend.config import CONVERT_API_KEY, CONVERT_PORT, PUBLIC_CONVERT
 
-API_KEY = os.environ.get("CONVERT_API_KEY", "diagram-convert-secret-key")
-PORT = int(os.environ.get("PORT", "5000"))
-PUBLIC_CONVERT = os.environ.get("PUBLIC_CONVERT", "1") != "0"
+API_KEY = CONVERT_API_KEY
+PORT = CONVERT_PORT
 
 
 class ConvertHandler(BaseHTTPRequestHandler):

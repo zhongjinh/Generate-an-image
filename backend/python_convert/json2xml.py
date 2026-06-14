@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
-from adapters import (
+from .adapters import (
     TEMPLATES,
     normalize,
     normalize_activity,
