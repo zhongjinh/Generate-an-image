@@ -1,0 +1,142 @@
+<mxfile host="app.diagrams.net" modified="2026-06-14T00:00:00.000Z" agent="Draw.io" version="24.0.0">
+  <diagram name="系统架构图" id="architecture-diagram">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="0" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        
+        <!-- 标题 -->
+        <mxCell id="title" value="戏曲文化传播平台系统架构图" style="text;html=1;strokeColor=#000000;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="334" y="20" width="500" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- ==================== 第一层：前端交互层 ==================== -->
+        <mxCell id="frontend-box" value="前端交互层" style="swimlane;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontSize=14;fontStyle=0;startSize=40;swimlaneFillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="80" y="80" width="1000" height="240" as="geometry"/>
+        </mxCell>
+
+        <!-- 用户端子容器 -->
+        <mxCell id="user-box" value="用户端" style="swimlane;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontSize=14;fontStyle=0;startSize=35;swimlaneFillColor=none;" vertex="1" parent="frontend-box">
+          <mxGeometry x="30" y="55" width="440" height="160" as="geometry"/>
+        </mxCell>
+
+        <!-- 用户端功能模块 -->
+        <mxCell id="u1" value="注册登录" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;" vertex="1" parent="user-box">
+          <mxGeometry x="20" y="45" width="180" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="u2" value="戏曲浏览与视频观看" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;" vertex="1" parent="user-box">
+          <mxGeometry x="230" y="45" width="190" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="u3" value="问答交流与评论" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;" vertex="1" parent="user-box">
+          <mxGeometry x="20" y="100" width="180" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="u4" value="公告查看与反馈" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;" vertex="1" parent="user-box">
+          <mxGeometry x="230" y="100" width="190" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- 管理员端子容器 -->
+        <mxCell id="admin-box" value="管理员端" style="swimlane;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontSize=14;fontStyle=0;startSize=35;swimlaneFillColor=none;" vertex="1" parent="frontend-box">
+          <mxGeometry x="530" y="55" width="440" height="160" as="geometry"/>
+        </mxCell>
+
+        <!-- 管理员端功能模块 -->
+        <mxCell id="a1" value="用户管理" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;" vertex="1" parent="admin-box">
+          <mxGeometry x="20" y="45" width="180" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="a2" value="戏曲分类/内容/视频管理" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;" vertex="1" parent="admin-box">
+          <mxGeometry x="230" y="45" width="190" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="a3" value="问答评论审核" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;" vertex="1" parent="admin-box">
+          <mxGeometry x="20" y="100" width="180" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="a4" value="公告与反馈管理" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;" vertex="1" parent="admin-box">
+          <mxGeometry x="230" y="100" width="190" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- ==================== 第二层：后端业务层 ==================== -->
+        <mxCell id="backend-box" value="后端业务层" style="swimlane;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontSize=14;fontStyle=0;startSize=40;swimlaneFillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="80" y="360" width="1000" height="240" as="geometry"/>
+        </mxCell>
+
+        <!-- 业务接口子容器 -->
+        <mxCell id="api-box" value="业务接口" style="swimlane;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontSize=14;fontStyle=0;startSize=30;swimlaneFillColor=none;" vertex="1" parent="backend-box">
+          <mxGeometry x="30" y="50" width="280" height="165" as="geometry"/>
+        </mxCell>
+        <mxCell id="b1" value="用户鉴权" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;" vertex="1" parent="api-box">
+          <mxGeometry x="20" y="45" width="240" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="b2" value="角色拦截" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;" vertex="1" parent="api-box">
+          <mxGeometry x="20" y="100" width="240" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- 业务逻辑子容器 -->
+        <mxCell id="logic-box" value="业务逻辑" style="swimlane;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontSize=14;fontStyle=0;startSize=30;swimlaneFillColor=none;" vertex="1" parent="backend-box">
+          <mxGeometry x="360" y="50" width="280" height="165" as="geometry"/>
+        </mxCell>
+        <mxCell id="b3" value="内容审核与发布" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;" vertex="1" parent="logic-box">
+          <mxGeometry x="20" y="45" width="240" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="b4" value="视频资源管理" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;" vertex="1" parent="logic-box">
+          <mxGeometry x="20" y="100" width="240" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- 本地缓存子容器 -->
+        <mxCell id="cache-box" value="本地缓存" style="swimlane;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontSize=14;fontStyle=0;startSize=30;swimlaneFillColor=none;" vertex="1" parent="backend-box">
+          <mxGeometry x="690" y="50" width="280" height="165" as="geometry"/>
+        </mxCell>
+        <mxCell id="b6" value="会话存储" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;" vertex="1" parent="cache-box">
+          <mxGeometry x="20" y="45" width="240" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="b7" value="热点戏曲数据" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;" vertex="1" parent="cache-box">
+          <mxGeometry x="20" y="100" width="240" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- ==================== 第三层：数据持久层 ==================== -->
+        <mxCell id="database-box" value="数据持久层" style="swimlane;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontSize=14;fontStyle=0;startSize=40;swimlaneFillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="80" y="640" width="1000" height="160" as="geometry"/>
+        </mxCell>
+
+        <!-- MySQL 子容器 -->
+        <mxCell id="mysql-box" value="MySQL" style="swimlane;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontSize=14;fontStyle=0;startSize=35;swimlaneFillColor=none;" vertex="1" parent="database-box">
+          <mxGeometry x="30" y="50" width="940" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="d1" value="用户与管理员数据" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;" vertex="1" parent="mysql-box">
+          <mxGeometry x="20" y="30" width="200" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="d2" value="戏曲分类/内容/视频数据" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;" vertex="1" parent="mysql-box">
+          <mxGeometry x="250" y="30" width="210" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="d3" value="问答/回答/评论数据" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;" vertex="1" parent="mysql-box">
+          <mxGeometry x="490" y="30" width="200" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="d4" value="公告与反馈数据" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;" vertex="1" parent="mysql-box">
+          <mxGeometry x="720" y="30" width="190" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- ==================== 箭头连接 ==================== -->
+        <!-- 前端到后端 -->
+        <mxCell id="arrow1" value="" style="endArrow=block;endFill=1;html=1;strokeWidth=2;strokeColor=#000000;" edge="1" parent="1" source="frontend-box" target="backend-box">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="580" y="325" as="sourcePoint"/>
+            <mxPoint x="580" y="355" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arrow1-label" value="HTTP/HTTPS" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=0;" vertex="1" parent="1">
+          <mxGeometry x="590" y="333" width="80" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- 后端到数据库 -->
+        <mxCell id="arrow2" value="" style="endArrow=block;endFill=1;html=1;strokeWidth=2;strokeColor=#000000;" edge="1" parent="1" source="backend-box" target="database-box">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="580" y="605" as="sourcePoint"/>
+            <mxPoint x="580" y="635" as="sourcePoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arrow2-label" value="JDBC/SQL" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=0;" vertex="1" parent="1">
+          <mxGeometry x="590" y="613" width="80" height="20" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

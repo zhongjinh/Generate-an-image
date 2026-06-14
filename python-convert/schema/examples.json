@@ -1,0 +1,172 @@
+{
+  "功能模块图": {
+    "type": "module",
+    "title": "系统总体功能模块图",
+    "roles": [
+      { "name": "角色一", "modules": ["模块A", "模块B", "模块C"] },
+      { "name": "角色二", "modules": ["模块D", "模块E"] }
+    ]
+  },
+  "用例图": {
+    "type": "usecase",
+    "title": "系统用例图",
+    "actors": [
+      { "id": "actor1", "name": "用户" },
+      { "id": "actor2", "name": "管理员" }
+    ],
+    "usecases": [
+      { "id": "uc1", "name": "登录" },
+      { "id": "uc2", "name": "浏览" },
+      { "id": "uc3", "name": "管理" }
+    ],
+    "relationships": [
+      { "actor": "actor1", "usecase": "uc1" },
+      { "actor": "actor1", "usecase": "uc2" },
+      { "actor": "actor2", "usecase": "uc3" }
+    ]
+  },
+  "ER图": {
+    "type": "er",
+    "title": "数据库 ER 图",
+    "entities": [
+      {
+        "name": "用户",
+        "attributes": [
+          { "name": "id", "pk": true },
+          { "name": "username" },
+          { "name": "email" }
+        ]
+      },
+      {
+        "name": "订单",
+        "attributes": [
+          { "name": "id", "pk": true },
+          { "name": "user_id" },
+          { "name": "total" }
+        ]
+      }
+    ],
+    "relationships": [
+      { "from": "用户", "to": "订单", "type": "1:N", "label": "下单" }
+    ]
+  },
+  "属性图": {
+    "type": "attribute",
+    "title": "社交网络属性图",
+    "tables": [
+      {
+        "name": "用户",
+        "comment": "用户表",
+        "columns": [
+          { "name": "id", "comment": "用户ID", "pk": true },
+          { "name": "name", "comment": "用户名" },
+          { "name": "age", "comment": "年龄" }
+        ]
+      }
+    ]
+  },
+  "类图": {
+    "type": "class",
+    "title": "面向对象设计类图",
+    "classes": [
+      {
+        "name": "Animal",
+        "attributes": ["- name: String", "- age: int"],
+        "methods": ["+ eat(): void", "+ sleep(): void"]
+      },
+      {
+        "name": "Dog",
+        "attributes": ["- breed: String"],
+        "methods": ["+ bark(): void"]
+      }
+    ],
+    "relationships": [
+      { "from": "Dog", "to": "Animal", "type": "inheritance" }
+    ]
+  },
+  "活动图": {
+    "type": "activity",
+    "title": "用户登录活动图",
+    "nodes": [
+      { "name": "开始", "type": "start" },
+      { "name": "输入信息", "type": "action" },
+      { "name": "验证", "type": "action" },
+      { "name": "通过？", "type": "decision" },
+      { "name": "进入系统", "type": "action" },
+      { "name": "结束", "type": "end" }
+    ],
+    "flows": [
+      { "from": "开始", "to": "输入信息" },
+      { "from": "输入信息", "to": "验证" },
+      { "from": "验证", "to": "通过？" },
+      { "from": "通过？", "to": "进入系统", "label": "是" },
+      { "from": "通过？", "to": "输入信息", "label": "否", "dashed": true },
+      { "from": "进入系统", "to": "结束" }
+    ]
+  },
+  "架构图": {
+    "type": "architecture",
+    "title": "戏曲文化传播平台系统架构图",
+    "links": ["HTTP/HTTPS", "JDBC/SQL"],
+    "layers": [
+      {
+        "name": "前端交互层",
+        "groups": [
+          { "name": "用户端", "nodes": ["注册登录", "戏曲浏览与视频观看", "问答交流与评论", "公告查看与反馈"] },
+          { "name": "管理员端", "nodes": ["用户管理", "戏曲分类/内容/视频管理", "问答评论审核", "公告与反馈管理"] }
+        ]
+      },
+      {
+        "name": "后端业务层",
+        "groups": [
+          { "name": "业务接口", "nodes": ["用户鉴权", "角色拦截"] },
+          { "name": "业务逻辑", "nodes": ["内容审核与发布", "视频资源管理"] },
+          { "name": "本地缓存", "nodes": ["会话存储", "热点戏曲数据"] }
+        ]
+      },
+      {
+        "name": "数据持久层",
+        "groups": [
+          { "name": "MySQL", "nodes": ["用户与管理员数据", "戏曲分类/内容/视频数据", "问答/回答/评论数据", "公告与反馈数据"] },
+          { "name": "Redis", "nodes": ["会话存储", "热点戏曲数据"] }
+        ]
+      }
+    ]
+  },
+  "序列图": {
+    "type": "sequence",
+    "title": "用户登录序列图",
+    "participants": [
+      { "id": "user", "name": "用户" },
+      { "id": "frontend", "name": "前端" },
+      { "id": "api", "name": "登录接口" },
+      { "id": "auth", "name": "认证服务" },
+      { "id": "db", "name": "数据库" }
+    ],
+    "messages": [
+      { "from": "user", "to": "frontend", "label": "输入账号密码" },
+      { "from": "frontend", "to": "api", "label": "POST /api/login" },
+      { "from": "api", "to": "auth", "label": "校验账号密码" },
+      { "from": "auth", "to": "db", "label": "查询用户信息" },
+      { "from": "db", "to": "auth", "label": "返回用户信息", "type": "return" },
+      { "from": "auth", "to": "auth", "label": "生成令牌" },
+      { "from": "auth", "to": "api", "label": "校验成功", "type": "return" },
+      { "from": "api", "to": "frontend", "label": "200 OK", "type": "return" },
+      { "from": "frontend", "to": "frontend", "label": "保存认证信息" },
+      { "from": "frontend", "to": "user", "label": "跳转首页", "type": "return" }
+    ]
+  },
+  "流程图": {
+    "type": "flowchart",
+    "title": "用户登录流程",
+    "steps": [
+      { "id": 1, "type": "开始", "text": "开始" },
+      { "id": 2, "type": "输入", "text": "输入账号密码" },
+      { "id": 3, "type": "处理", "text": "验证账号" },
+      { "id": 4, "type": "判断", "text": "验证通过？", "branches": { "否": 2 } },
+      { "id": 5, "type": "处理", "text": "加载用户信息" },
+      { "id": 6, "type": "输出", "text": "跳转首页" },
+      { "id": 7, "type": "结束", "text": "结束" }
+    ]
+  }
+}

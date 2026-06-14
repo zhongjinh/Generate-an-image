@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>管理后台 - 图表在线生成器</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+body{overflow:hidden;height:100vh}
+.admin-layout{display:flex;height:calc(100vh - 52px)}
+.sidebar{width:200px;background:#001529;color:#fff;padding:20px 0}
+.sidebar h3{padding:0 20px;font-size:16px;margin-bottom:20px;color:#fff}
+.sidebar a{display:block;padding:10px 20px;color:#ffffffa0;text-decoration:none;font-size:14px;cursor:pointer}
+.sidebar a:hover,.sidebar a.active{background:#1890ff;color:#fff}
+.admin-main{flex:1;padding:20px;overflow:auto;background:#f0f2f5}
+.admin-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.admin-header h2{font-size:18px}
+.stat-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:20px}
+.stat-card{background:#fff;border-radius:8px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.stat-card .label{font-size:13px;color:#999}
+.stat-card .value{font-size:28px;font-weight:700;color:#333;margin-top:4px}
+.table-wrap{background:#fff;border-radius:8px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.admin-table{width:100%;border-collapse:collapse;font-size:13px}
+.admin-table th,.admin-table td{padding:10px 12px;text-align:left;border-bottom:1px solid #f0f0f0}
+.admin-table th{background:#fafafa;font-weight:600;color:#333}
+.tag{padding:2px 8px;border-radius:10px;font-size:11px}
+.tag-paid{background:#f6ffed;color:#52c41a}
+.tag-pending{background:#fff7e6;color:#faad14}
+.tag-disabled{background:#fff2f0;color:#ff4d4f}
+.btn-action{padding:4px 10px;border:1px solid #d9d9d9;border-radius:4px;background:#fff;font-size:12px;cursor:pointer;margin-right:4px}
+.btn-action:hover{border-color:#1890ff;color:#1890ff}
+.btn-danger{border-color:#ff4d4f!important;color:#ff4d4f!important}
+</style>
+</head>
+<body>
+<header class="header">
+  <div class="logo">
+    <span class="logo-icon">图</span>
+    管理后台
+  </div>
+  <div class="nav-right"><a href="index.html">返回前台</a></div>
+</header>
+<div class="admin-layout">
+  <div class="sidebar">
+    <h3>管理菜单</h3>
+    <a class="active" data-sec="stats" onclick="showSection('stats', this)">数据统计</a>
+    <a data-sec="users" onclick="showSection('users', this)">用户管理</a>
+    <a data-sec="orders" onclick="showSection('orders', this)">订单管理</a>
+    <a data-sec="packages" onclick="showSection('packages', this)">套餐配置</a>
+  </div>
+  <div class="admin-main">
+    <div id="sec-stats" class="section">
+      <div class="admin-header"><h2>数据统计</h2></div>
+      <div class="stat-cards">
+        <div class="stat-card"><div class="label">总用户数</div><div class="value" id="statTotalUsers">-</div></div>
+        <div class="stat-card"><div class="label">今日新增</div><div class="value" id="statTodayUsers">-</div></div>
+        <div class="stat-card"><div class="label">付费订单</div><div class="value" id="statTotalOrders">-</div></div>
+        <div class="stat-card"><div class="label">总营收(元)</div><div class="value" id="statRevenue">-</div></div>
+        <div class="stat-card"><div class="label">今日生成</div><div class="value" id="statTodayCharts">-</div></div>
+      </div>
+    </div>
+    <div id="sec-users" class="section" style="display:none">
+      <div class="admin-header"><h2>用户管理</h2></div>
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>ID</th><th>用户名</th><th>手机号</th><th>剩余次数</th><th>会员</th><th>状态</th><th>注册时间</th><th>操作</th></tr></thead>
+          <tbody id="userTable"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="sec-orders" class="section" style="display:none">
+      <div class="admin-header"><h2>订单管理</h2></div>
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>订单号</th><th>用户</th><th>套餐</th><th>金额</th><th>状态</th><th>创建时间</th></tr></thead>
+          <tbody id="orderTable"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="sec-packages" class="section" style="display:none">
+      <div class="admin-header"><h2>套餐配置</h2></div>
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>ID</th><th>名称</th><th>类型</th><th>价格</th><th>次数</th><th>天数</th><th>状态</th></tr></thead>
+          <tbody id="packageTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api-request.js"></script>
+<script src="js/login-auth.js"></script>
+<script>
+if (!Auth.isLoggedIn() || !Auth.isAdmin()) {
+  alert('请以管理员身份登录');
+  window.location.href = 'index.html';
+}
+
+function showSection(name, el) {
+  document.querySelectorAll('.section').forEach(function (s) { s.style.display = 'none'; });
+  document.getElementById('sec-' + name).style.display = 'block';
+  document.querySelectorAll('.sidebar a').forEach(function (a) { a.classList.remove('active'); });
+  if (el) el.classList.add('active');
+  if (name === 'stats') loadStats();
+  if (name === 'users') loadUsers();
+  if (name === 'orders') loadOrders();
+  if (name === 'packages') loadPackages();
+}
+
+async function loadStats() {
+  var r = await Api.adminStats();
+  document.getElementById('statTotalUsers').textContent = r.total_users;
+  document.getElementById('statTodayUsers').textContent = r.today_users;
+  document.getElementById('statTotalOrders').textContent = r.total_orders;
+  document.getElementById('statRevenue').textContent = '¥' + r.total_revenue.toFixed(2);
+  document.getElementById('statTodayCharts').textContent = r.today_charts;
+}
+
+async function loadUsers() {
+  var r = await Api.adminUsers();
+  var html = '';
+  (r.users || []).forEach(function (u) {
+    html += '<tr><td>' + u.id + '</td><td>' + u.username + '</td><td>' + (u.phone || '-') + '</td>';
+    html += '<td>' + u.remain_count + '</td><td>' + (u.vip_type || '普通') + '</td>';
+    html += '<td>' + (u.is_disabled ? '<span class="tag tag-disabled">已禁用</span>' : '正常') + '</td>';
+    html += '<td>' + u.create_time + '</td><td>';
+    html += '<button class="btn-action" onclick="resetCount(' + u.id + ')">重置次数</button>';
+    html += '<button class="btn-action btn-danger" onclick="toggleDisable(' + u.id + ')">' + (u.is_disabled ? '启用' : '禁用') + '</button>';
+    html += '</td></tr>';
+  });
+  document.getElementById('userTable').innerHTML = html;
+}
+
+async function loadOrders() {
+  var r = await Api.adminOrders();
+  var html = '';
+  (r.orders || []).forEach(function (o) {
+    html += '<tr><td>' + o.order_id + '</td><td>' + o.username + '</td><td>' + (o.package_name || '-') + '</td>';
+    html += '<td>¥' + o.pay_amount + '</td><td><span class="tag tag-' + o.pay_status + '">' + o.pay_status + '</span></td>';
+    html += '<td>' + o.create_time + '</td></tr>';
+  });
+  document.getElementById('orderTable').innerHTML = html;
+}
+
+async function loadPackages() {
+  var r = await Api.getPackages();
+  var html = '';
+  (r.packages || []).forEach(function (p) {
+    html += '<tr><td>' + p.id + '</td><td>' + p.package_name + '</td><td>' + p.type + '</td>';
+    html += '<td>¥' + p.price + '</td><td>' + p.total_count + '</td><td>' + p.valid_days + '天</td>';
+    html += '<td>' + (p.is_enable ? '启用' : '禁用') + '</td></tr>';
+  });
+  document.getElementById('packageTable').innerHTML = html;
+}
+
+async function resetCount(id) {
+  var count = prompt('输入新的生成次数:');
+  if (count === null) return;
+  await Api.adminResetCount(id, parseInt(count, 10));
+  loadUsers();
+}
+
+async function toggleDisable(id) {
+  await Api.adminDisableUser(id);
+  loadUsers();
+}
+
+loadStats();
+</script>
+</body>
+</html>

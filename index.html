@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>图表在线生成器</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="header">
+  <div class="logo">
+    <span class="logo-icon">图</span>
+    图表在线生成器
+  </div>
+  <div class="nav-right">
+    <span class="user-info" id="userInfo" style="display:none">
+      <span class="user-avatar" id="userAvatar">U</span>
+      <span id="userName"></span>
+      <span class="remain-count" id="remainCount"></span>
+      <a href="pay.html">购买会员</a>
+      <a id="adminLink" href="admin.html" style="display:none">管理后台</a>
+      <button class="btn-sm" onclick="Auth.logout()">退出</button>
+    </span>
+    <span class="login-area" id="loginArea">
+      <button class="btn-sm" onclick="openAuthModal('login')">登录</button>
+      <button class="btn-sm btn-primary" onclick="openAuthModal('register')">注册</button>
+    </span>
+    <a href="pay.html" class="btn-vip">开通会员</a>
+  </div>
+</header>
+
+<div class="main">
+  <aside class="chart-sidebar">
+    <div class="chart-sidebar-title">图表类型</div>
+    <ul class="chart-nav-list" id="chartNavList"></ul>
+  </aside>
+
+  <div class="center-panel">
+    <div class="panel-header">
+      <span class="panel-title">
+        JSON 配置
+        <span class="panel-title-badge" id="currentChartName">功能模块图</span>
+      </span>
+      <div class="panel-actions">
+        <button class="btn-sm" onclick="loadExample()">加载示例</button>
+        <button class="btn-sm" onclick="formatJson()">格式化</button>
+        <button class="btn-sm" onclick="uploadJson()">上传</button>
+        <button class="btn-sm btn-primary" onclick="doConvert()">渲染图表</button>
+      </div>
+    </div>
+    <div id="jsonEditor" class="json-editor" contenteditable="true" spellcheck="false"></div>
+    <div id="jsonError" class="json-error"></div>
+    <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFile(event)">
+  </div>
+
+  <div class="right-panel">
+    <div class="panel-header">
+      <span class="panel-title">图表预览</span>
+      <div class="panel-actions">
+        <button class="btn-sm" onclick="zoomIn()">放大</button>
+        <button class="btn-sm" onclick="zoomOut()">缩小</button>
+        <button class="btn-sm" onclick="resetView()">重置</button>
+        <div class="export-dropdown">
+          <button class="btn-sm btn-success">导出 ▾</button>
+          <div class="dropdown-menu">
+            <a onclick="exportAs('svg')">导出 SVG</a>
+            <a onclick="exportAs('png')">导出 PNG</a>
+            <a onclick="exportAs('jpg')">导出 JPG</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="renderArea" class="render-area">
+      <div class="placeholder">
+        <div class="placeholder-icon">📊</div>
+        登录后选择左侧图表类型，编辑 JSON 并点击「渲染图表」<br>
+        新用户注册赠送 <strong>1 次</strong> 免费生成
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 登录 / 注册弹窗 -->
+<div id="authModal" class="modal-overlay" style="display:none" onclick="onAuthOverlayClick(event)">
+  <div class="auth-modal-wrap">
+    <div class="auth-modal">
+      <button type="button" class="modal-close" onclick="closeAuthModal()" aria-label="关闭">&times;</button>
+      <div class="auth-modal-header">
+        <h2 id="authModalTitle">欢迎回来</h2>
+        <p id="authModalSubtitle">登录后即可生成专业图表</p>
+      </div>
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">登录</button>
+        <button type="button" class="auth-tab" id="tabRegister" onclick="switchAuthTab('register')">注册</button>
+      </div>
+      <div class="auth-form">
+        <div id="authFormError" class="form-error"></div>
+        <div id="authFormSuccess" class="form-success"></div>
+
+        <form id="loginForm" onsubmit="doLogin(event)">
+          <div class="form-group">
+            <label for="loginUser">用户名</label>
+            <input type="text" id="loginUser" placeholder="请输入用户名" autocomplete="username" />
+          </div>
+          <div class="form-group">
+            <label for="loginPass">密码</label>
+            <input type="password" id="loginPass" placeholder="请输入密码" autocomplete="current-password" />
+          </div>
+          <button type="submit" class="btn-auth" id="loginBtn">登录</button>
+        </form>
+
+        <form id="registerForm" style="display:none" onsubmit="doRegister(event)">
+          <div class="form-group">
+            <label for="regUser">用户名</label>
+            <input type="text" id="regUser" placeholder="3-20 位字符" autocomplete="username" />
+          </div>
+          <div class="form-group">
+            <label for="regPass">密码</label>
+            <input type="password" id="regPass" placeholder="至少 6 位" autocomplete="new-password" />
+          </div>
+          <div class="form-group">
+            <label for="regPhone">手机号 <span style="color:#94a3b8;font-weight:400">（可选）</span></label>
+            <input type="text" id="regPhone" placeholder="手机号" autocomplete="tel" />
+          </div>
+          <button type="submit" class="btn-auth" id="registerBtn">注册并领取免费次数</button>
+          <p class="auth-tip">注册即赠送 <strong>1 次</strong> 免费图表生成</p>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api-request.js"></script>
+<script src="js/login-auth.js"></script>
+<script src="js/json2xml.js"></script>
+<script src="js/xml2chart.js"></script>
+<script src="js/export-img.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
