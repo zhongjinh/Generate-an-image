@@ -45,7 +45,7 @@ var Json2Xml = (function () {
     _id = 0;
     var EDGE = 'endArrow=none;html=1;rounded=0;';
     var EDGE_EXIT = 'endArrow=none;html=1;rounded=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;';
-    var TITLE_STYLE = 'rounded=0;whiteSpace=wrap;html=1;strokeColor=default;align=center;verticalAlign=middle;fontFamily=Helvetica;fontSize=14;fontColor=default;fillColor=default;fontStyle=0';
+    var TITLE_STYLE = 'rounded=0;whiteSpace=wrap;html=1;strokeColor=default;align=center;verticalAlign=middle;fontFamily=Helvetica;fontSize=12;fontColor=default;fillColor=default;fontStyle=0';
     var BOX = 'rounded=0;whiteSpace=wrap;html=1;';
     var L = {
       title_width: 456.5, title_height: 60, title_y: -5,

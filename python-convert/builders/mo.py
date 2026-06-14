@@ -54,7 +54,7 @@ _L = {
     "module_box_height": 300.0,
     "bar_width": 41.0,
     "column_step": 46.5,
-    "font_size": 14,
+    "font_size": 24,
     "role_spacing_base": 180.0,
     "min_cluster_gap": 60.0,
     "page_margin": 40.0,
@@ -62,13 +62,13 @@ _L = {
 }
 
 
-def _font_value(text: str, font_size: int = 14) -> str:
+def _font_value(text: str, font_size: int = 24) -> str:
     """draw.io 存 HTML 片段；由 ElementTree 写入时会正确转义为 &lt;font ...&gt;。"""
     inner = html.escape(text)
     return f'<font style="font-size: {font_size}px;">{inner}</font>'
 
 
-def _span_value(text: str, font_size: int = 14) -> str:
+def _span_value(text: str, font_size: int = 24) -> str:
     inner = html.escape(text)
     return f'<span style="font-size: {font_size}px;">{inner}</span>'
 
