@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import sys
 import time
@@ -18,23 +17,20 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-ROOT = Path(__file__).resolve().parent
+BACKEND_DIR = Path(__file__).resolve().parent
+ROOT = BACKEND_DIR.parent
 sys.path.insert(0, str(ROOT))
 
-CONVERT_DIR = ROOT.parent / "Online-Diagram-Generator" / "python-convert"
-sys.path.insert(0, str(CONVERT_DIR))
-
 from backend.auth import generate_token, hash_password, user_payload, verify_token
+from backend.config import ADMIN_PASSWORD, ENV, FRONTEND_DIR, HOST, PORT
 from backend.db import REGISTER_FREE_COUNT, get_db, init_db
 
 try:
-    from json2xml import convert as json_to_xml
+    from backend.python_convert import convert as json_to_xml
     HAS_CONVERTER = True
 except ImportError:
     HAS_CONVERTER = False
     json_to_xml = None
-
-PORT = int(os.environ.get("PORT", "8765"))
 
 
 def _row_dict(row) -> dict:
@@ -43,7 +39,7 @@ def _row_dict(row) -> dict:
 
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=str(ROOT), **kwargs)
+        super().__init__(*args, directory=str(FRONTEND_DIR), **kwargs)
 
     def _cors(self):
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -59,6 +55,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.end_headers()
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode("utf-8"))
+        return True
 
     def _read_body(self) -> dict:
         length = int(self.headers.get("Content-Length", 0))
@@ -509,19 +506,19 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 def main():
-    init_db()
     print("=" * 50)
-    print("  图表在线生成器")
+    print(f"  图表在线生成器 [{ENV}]")
     print("=" * 50)
     print(f"目录: {ROOT}")
     print(f"数据库: {ROOT / 'data' / 'app.db'}")
+    init_db()
+    print(f"管理员: admin / {ADMIN_PASSWORD}")
     print(f"转换模块: {'可用' if HAS_CONVERTER else '不可用'}")
-    print(f"访问: http://127.0.0.1:{PORT}")
-    print("管理员: admin / admin123")
+    print(f"访问: http://{HOST}:{PORT}")
     print("新用户注册赠送 1 次生成次数")
     print("按 Ctrl+C 停止")
     print("=" * 50)
-    HTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+    HTTPServer((HOST, PORT), Handler).serve_forever()
 
 
 if __name__ == "__main__":

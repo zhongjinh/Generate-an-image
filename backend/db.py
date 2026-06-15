@@ -5,12 +5,8 @@
 from __future__ import annotations
 
 import sqlite3
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "data" / "app.db"
-
-REGISTER_FREE_COUNT = 1
+from backend.config import ADMIN_PASSWORD, DB_PATH, REGISTER_FREE_COUNT
 
 DEFAULT_PACKAGES = [
     ("日卡", "day", 9.9, 50, 1),
@@ -107,7 +103,7 @@ def init_db() -> None:
 
         cur.execute(
             "INSERT INTO user (username, password, is_admin, remain_count) VALUES (?, ?, 1, ?)",
-            ("admin", hash_password("admin123"), 99999),
+            ("admin", hash_password(ADMIN_PASSWORD), 99999),
         )
 
     conn.commit()
