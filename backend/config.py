@@ -1,23 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-统一配置模块 - 支持开发/生产环境
-优先级：环境变量 > .env 文件 > 默认值
+统一配置模块
+优先级：系统环境变量 > .env 文件
+所有配置项均必填，缺失或为空时启动失败。
 """
 
 from __future__ import annotations
 
 import os
-import secrets
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-
-# ---------- 目录 ----------
-FRONTEND_DIR = ROOT / "frontend"
-
-# ---------- 加载 .env 文件 ----------
-# 优先级：系统环境变量 > .env > 代码默认值
+ENV_FILE = ROOT / ".env"
+FRONTEND_DIST = ROOT / "frontend" / "dist"
 
 
 def _load_dotenv(path: Path) -> None:
@@ -35,66 +31,62 @@ def _load_dotenv(path: Path) -> None:
             value = value.strip().strip("\"'")
             if not key:
                 continue
-            if value and key not in os.environ:
+            if key not in os.environ:
                 os.environ[key] = value
 
 
-_load_dotenv(ROOT / ".env")
+if not ENV_FILE.exists():
+    raise RuntimeError(
+        "缺少 .env 配置文件。请复制模板并填写全部必填项：\n"
+        "  cp .env.example .env"
+    )
 
-# ---------- 环境切换 ----------
-ENV = os.environ.get("APP_ENV", "development")  # development | production
+_load_dotenv(ENV_FILE)
+
+
+def _require(name: str) -> str:
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise RuntimeError(f"配置项 {name} 未设置或为空，请在 .env 中填写")
+    return value
+
+
+def _require_int(name: str) -> int:
+    value = _require(name)
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise RuntimeError(f"配置项 {name} 必须是整数，当前值: {value}") from exc
+
+
+def _require_choice(name: str, choices: set[str]) -> str:
+    value = _require(name)
+    if value not in choices:
+        allowed = ", ".join(sorted(choices))
+        raise RuntimeError(f"配置项 {name} 必须是以下之一: {allowed}，当前值: {value}")
+    return value
+
+
+ENV = _require_choice("APP_ENV", {"development", "production"})
 DEBUG = ENV == "development"
 
+HOST = _require("HOST")
+PORT = _require_int("PORT")
+if PORT <= 0 or PORT > 65535:
+    raise RuntimeError(f"配置项 PORT 必须在 1-65535 之间，当前值: {PORT}")
 
-def _env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default)
-
-
-def _env_int(name: str, default: int = 0) -> int:
-    val = os.environ.get(name)
-    return int(val) if val else default
-
-
-def _env_float(name: str, default: float = 0.0) -> float:
-    val = os.environ.get(name)
-    return float(val) if val else default
-
-
-# ---------- 服务器 ----------
-HOST = _env("HOST", "127.0.0.1")
-PORT = _env_int("PORT", 8765)
-
-# ---------- 数据库 ----------
 DB_PATH = ROOT / "data" / "app.db"
 
-# ---------- 认证 ----------
-_jwt_secret = _env("JWT_SECRET")
-if not _jwt_secret:
-    if ENV == "production":
-        raise RuntimeError("生产环境必须通过环境变量 JWT_SECRET 指定密钥")
-    _jwt_secret = secrets.token_hex(32)
-    print(f"[配置] JWT_SECRET 未设置，已自动生成随机密钥（仅限开发环境）")
-JWT_SECRET = _jwt_secret
+JWT_SECRET = _require("JWT_SECRET")
+ADMIN_PASSWORD = _require("ADMIN_PASSWORD")
 
-# ---------- 管理员 ----------
-ADMIN_PASSWORD = _env("ADMIN_PASSWORD")
-if not ADMIN_PASSWORD and ENV == "development":
-    ADMIN_PASSWORD = "admin123"
-    print(f"[配置] 管理员默认密码: admin / admin123（仅限开发环境）")
-elif not ADMIN_PASSWORD:
-    ADMIN_PASSWORD = secrets.token_urlsafe(12)
-    print(f"[配置] 管理员密码已随机生成: admin / {ADMIN_PASSWORD}（请妥善保存）")
+REGISTER_FREE_COUNT = _require_int("REGISTER_FREE_COUNT")
+if REGISTER_FREE_COUNT < 0:
+    raise RuntimeError("配置项 REGISTER_FREE_COUNT 不能为负数")
 
-# ---------- 用户 ----------
-REGISTER_FREE_COUNT = _env_int("REGISTER_FREE_COUNT", 1)
+CONVERT_API_KEY = _require("CONVERT_API_KEY")
+CONVERT_PORT = _require_int("CONVERT_PORT")
+if CONVERT_PORT <= 0 or CONVERT_PORT > 65535:
+    raise RuntimeError(f"配置项 CONVERT_PORT 必须在 1-65535 之间，当前值: {CONVERT_PORT}")
 
-# ---------- 转换服务 ----------
-CONVERT_API_KEY = _env("CONVERT_API_KEY")
-if not CONVERT_API_KEY:
-    if ENV == "production":
-        raise RuntimeError("生产环境必须通过环境变量 CONVERT_API_KEY 指定密钥")
-    CONVERT_API_KEY = secrets.token_urlsafe(24)
-    print(f"[配置] CONVERT_API_KEY 未设置，已自动生成随机密钥（仅限开发环境）")
-
-CONVERT_PORT = _env_int("CONVERT_PORT", 5000)
-PUBLIC_CONVERT = _env("PUBLIC_CONVERT", "1") != "0"
+PUBLIC_CONVERT = _require_choice("PUBLIC_CONVERT", {"0", "1"}) == "1"
