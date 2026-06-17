@@ -15,6 +15,8 @@ router = APIRouter(prefix="/api/user", tags=["user"])
 @router.get("/info")
 def user_info(user: dict = Depends(require_user)):
     conn = get_db()
-    row = conn.execute("SELECT * FROM user WHERE id = ?", (user["id"],)).fetchone()
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM user WHERE id = %s", (user["id"],))
+        row = cur.fetchone()
     conn.close()
     return {"user": user_payload(row)}

@@ -29,38 +29,41 @@ def convert(body: ConvertBody, user: dict = Depends(require_user)):
         raise HTTPException(status_code=400, detail={"error": "json_content 不能为空"})
 
     conn = get_db()
-    row = conn.execute("SELECT * FROM user WHERE id = ?", (user["id"],)).fetchone()
-    if not row["is_admin"] and row["remain_count"] <= 0:
-        conn.close()
-        raise HTTPException(status_code=403, detail={"error": "生成次数已用完，请购买会员"})
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM user WHERE id = %s", (user["id"],))
+        row = cur.fetchone()
+        if not row["is_admin"] and row["remain_count"] <= 0:
+            conn.close()
+            raise HTTPException(status_code=403, detail={"error": "生成次数已用完，请购买会员"})
 
-    try:
-        xml = json_to_xml(json_content)
-    except Exception as e:
-        conn.close()
-        raise HTTPException(status_code=400, detail={"error": str(e)}) from e
+        try:
+            xml = json_to_xml(json_content)
+        except Exception as e:
+            conn.close()
+            raise HTTPException(status_code=400, detail={"error": str(e)}) from e
 
-    if not row["is_admin"]:
-        conn.execute(
-            "UPDATE user SET remain_count = remain_count - 1 WHERE id = ? AND remain_count > 0",
-            (user["id"],),
+        if not row["is_admin"]:
+            cur.execute(
+                "UPDATE user SET remain_count = remain_count - 1 WHERE id = %s AND remain_count > 0",
+                (user["id"],),
+            )
+
+        cfg = json.loads(json_content)
+        cur.execute(
+            "INSERT INTO file_record (user_id, json_content, xml_content, chart_type, title) VALUES (%s, %s, %s, %s, %s)",
+            (
+                user["id"],
+                json_content,
+                xml,
+                cfg.get("type", ""),
+                cfg.get("title", ""),
+            ),
         )
-
-    cfg = json.loads(json_content)
-    conn.execute(
-        "INSERT INTO file_record (user_id, json_content, xml_content, chart_type, title) VALUES (?, ?, ?, ?, ?)",
-        (
-            user["id"],
-            json_content,
-            xml,
-            cfg.get("type", ""),
-            cfg.get("title", ""),
-        ),
-    )
     conn.commit()
-    updated = conn.execute(
-        "SELECT remain_count FROM user WHERE id = ?", (user["id"],)
-    ).fetchone()
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT remain_count FROM user WHERE id = %s", (user["id"],))
+        updated = cur.fetchone()
     conn.close()
 
     return {

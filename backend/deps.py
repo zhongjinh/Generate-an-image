@@ -24,7 +24,9 @@ def get_current_user(authorization: str | None = Header(default=None)) -> dict |
     if not payload or "id" not in payload:
         return None
     conn = get_db()
-    row = conn.execute("SELECT * FROM user WHERE id = ?", (payload["id"],)).fetchone()
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM user WHERE id = %s", (payload["id"],))
+        row = cur.fetchone()
     conn.close()
     return _row_dict(row) if row else None
 

@@ -22,10 +22,12 @@ class SaveFileBody(BaseModel):
 @router.get("")
 def get_files(user: dict = Depends(require_user)):
     conn = get_db()
-    rows = conn.execute(
-        "SELECT id, chart_type, title, create_time FROM file_record WHERE user_id = ? ORDER BY create_time DESC LIMIT 100",
-        (user["id"],),
-    ).fetchall()
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, chart_type, title, create_time FROM file_record WHERE user_id = %s ORDER BY create_time DESC LIMIT 100",
+            (user["id"],),
+        )
+        rows = cur.fetchall()
     conn.close()
     return {"files": [_row_dict(r) for r in rows]}
 
@@ -33,16 +35,17 @@ def get_files(user: dict = Depends(require_user)):
 @router.post("")
 def save_file(body: SaveFileBody, user: dict = Depends(require_user)):
     conn = get_db()
-    conn.execute(
-        "INSERT INTO file_record (user_id, json_content, xml_content, chart_type, title) VALUES (?, ?, ?, ?, ?)",
-        (
-            user["id"],
-            body.json_content,
-            body.xml_content,
-            body.chart_type,
-            body.title,
-        ),
-    )
+    with conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO file_record (user_id, json_content, xml_content, chart_type, title) VALUES (%s, %s, %s, %s, %s)",
+            (
+                user["id"],
+                body.json_content,
+                body.xml_content,
+                body.chart_type,
+                body.title,
+            ),
+        )
     conn.commit()
     conn.close()
     return {"success": True}

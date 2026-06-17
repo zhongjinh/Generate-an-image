@@ -15,13 +15,15 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 @router.get("/users")
 def admin_users(_: dict = Depends(require_admin)):
     conn = get_db()
-    rows = conn.execute(
-        """
-        SELECT id, username, email, phone, is_admin, remain_count, vip_type,
-               vip_expire_time, create_time, is_disabled
-        FROM user ORDER BY create_time DESC
-        """
-    ).fetchall()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, username, email, phone, is_admin, remain_count, vip_type,
+                   vip_expire_time, create_time, is_disabled
+            FROM user ORDER BY create_time DESC
+            """
+        )
+        rows = cur.fetchall()
     conn.close()
     return {"users": [_row_dict(r) for r in rows]}
 
@@ -29,14 +31,16 @@ def admin_users(_: dict = Depends(require_admin)):
 @router.get("/orders")
 def admin_orders(_: dict = Depends(require_admin)):
     conn = get_db()
-    rows = conn.execute(
-        """
-        SELECT o.*, p.package_name, u.username FROM order_record o
-        LEFT JOIN vip_package p ON o.package_id = p.id
-        LEFT JOIN user u ON o.user_id = u.id
-        ORDER BY o.create_time DESC LIMIT 200
-        """
-    ).fetchall()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT o.*, p.package_name, u.username FROM order_record o
+            LEFT JOIN vip_package p ON o.package_id = p.id
+            LEFT JOIN user u ON o.user_id = u.id
+            ORDER BY o.create_time DESC LIMIT 200
+            """
+        )
+        rows = cur.fetchall()
     conn.close()
     return {"orders": [_row_dict(r) for r in rows]}
 
@@ -44,19 +48,17 @@ def admin_orders(_: dict = Depends(require_admin)):
 @router.get("/stats")
 def admin_stats(_: dict = Depends(require_admin)):
     conn = get_db()
-    total_users = conn.execute("SELECT COUNT(*) AS c FROM user").fetchone()["c"]
-    today_users = conn.execute(
-        "SELECT COUNT(*) AS c FROM user WHERE date(create_time) = date('now', 'localtime')"
-    ).fetchone()["c"]
-    total_orders = conn.execute(
-        "SELECT COUNT(*) AS c FROM order_record WHERE pay_status = 'paid'"
-    ).fetchone()["c"]
-    total_revenue = conn.execute(
-        "SELECT COALESCE(SUM(pay_amount), 0) AS t FROM order_record WHERE pay_status = 'paid'"
-    ).fetchone()["t"]
-    today_charts = conn.execute(
-        "SELECT COUNT(*) AS c FROM file_record WHERE date(create_time) = date('now', 'localtime')"
-    ).fetchone()["c"]
+    with conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) AS c FROM user")
+        total_users = cur.fetchone()["c"]
+        cur.execute("SELECT COUNT(*) AS c FROM user WHERE DATE(create_time) = CURDATE()")
+        today_users = cur.fetchone()["c"]
+        cur.execute("SELECT COUNT(*) AS c FROM order_record WHERE pay_status = 'paid'")
+        total_orders = cur.fetchone()["c"]
+        cur.execute("SELECT COALESCE(SUM(pay_amount), 0) AS t FROM order_record WHERE pay_status = 'paid'")
+        total_revenue = cur.fetchone()["t"]
+        cur.execute("SELECT COUNT(*) AS c FROM file_record WHERE DATE(create_time) = CURDATE()")
+        today_charts = cur.fetchone()["c"]
     conn.close()
     return {
         "total_users": total_users,
@@ -74,7 +76,8 @@ class ResetCountBody(BaseModel):
 @router.put("/users/{user_id}/count")
 def reset_count(user_id: int, body: ResetCountBody, _: dict = Depends(require_admin)):
     conn = get_db()
-    conn.execute("UPDATE user SET remain_count = ? WHERE id = ?", (body.count, user_id))
+    with conn.cursor() as cur:
+        cur.execute("UPDATE user SET remain_count = %s WHERE id = %s", (body.count, user_id))
     conn.commit()
     conn.close()
     return {"success": True}
@@ -83,15 +86,15 @@ def reset_count(user_id: int, body: ResetCountBody, _: dict = Depends(require_ad
 @router.put("/users/{user_id}/disable")
 def disable_user(user_id: int, _: dict = Depends(require_admin)):
     conn = get_db()
-    row = conn.execute(
-        "SELECT is_disabled FROM user WHERE id = ?", (user_id,)
-    ).fetchone()
-    if row:
-        conn.execute(
-            "UPDATE user SET is_disabled = ? WHERE id = ?",
-            (0 if row["is_disabled"] else 1, user_id),
-        )
-        conn.commit()
+    with conn.cursor() as cur:
+        cur.execute("SELECT is_disabled FROM user WHERE id = %s", (user_id,))
+        row = cur.fetchone()
+        if row:
+            cur.execute(
+                "UPDATE user SET is_disabled = %s WHERE id = %s",
+                (0 if row["is_disabled"] else 1, user_id),
+            )
+    conn.commit()
     conn.close()
     return {"success": True}
 
@@ -109,20 +112,21 @@ def update_package(
     package_id: int, body: UpdatePackageBody, _: dict = Depends(require_admin)
 ):
     conn = get_db()
-    conn.execute(
-        """
-        UPDATE vip_package SET package_name=?, price=?, total_count=?, valid_days=?, is_enable=?
-        WHERE id=?
-        """,
-        (
-            body.package_name,
-            body.price,
-            body.total_count,
-            body.valid_days,
-            1 if body.is_enable else 0,
-            package_id,
-        ),
-    )
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE vip_package SET package_name=%s, price=%s, total_count=%s, valid_days=%s, is_enable=%s
+            WHERE id=%s
+            """,
+            (
+                body.package_name,
+                body.price,
+                body.total_count,
+                body.valid_days,
+                1 if body.is_enable else 0,
+                package_id,
+            ),
+        )
     conn.commit()
     conn.close()
     return {"success": True}

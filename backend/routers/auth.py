@@ -51,17 +51,16 @@ def _username_from_email(email: str) -> str:
 
 def _unique_username(conn, base: str) -> str:
     candidate = base[:20]
-    if not conn.execute(
-        "SELECT id FROM user WHERE username = ?", (candidate,)
-    ).fetchone():
-        return candidate
-    for i in range(1, 1000):
-        suffix = str(i)
-        truncated = base[: 20 - len(suffix)] + suffix
-        if not conn.execute(
-            "SELECT id FROM user WHERE username = ?", (truncated,)
-        ).fetchone():
-            return truncated
+    with conn.cursor() as cur:
+        cur.execute("SELECT id FROM user WHERE username = %s", (candidate,))
+        if not cur.fetchone():
+            return candidate
+        for i in range(1, 1000):
+            suffix = str(i)
+            truncated = base[: 20 - len(suffix)] + suffix
+            cur.execute("SELECT id FROM user WHERE username = %s", (truncated,))
+            if not cur.fetchone():
+                return truncated
     _raise(500, "无法生成用户名，请稍后重试")
     return ""
 
@@ -90,16 +89,18 @@ def login(body: LoginBody):
 
     conn = get_db()
     hashed = hash_password(password)
-    if "@" in account:
-        row = conn.execute(
-            "SELECT * FROM user WHERE email = ? AND password = ?",
-            (normalize_email(account), hashed),
-        ).fetchone()
-    else:
-        row = conn.execute(
-            "SELECT * FROM user WHERE username = ? AND password = ?",
-            (account, hashed),
-        ).fetchone()
+    with conn.cursor() as cur:
+        if "@" in account:
+            cur.execute(
+                "SELECT * FROM user WHERE email = %s AND password = %s",
+                (normalize_email(account), hashed),
+            )
+        else:
+            cur.execute(
+                "SELECT * FROM user WHERE username = %s AND password = %s",
+                (account, hashed),
+            )
+        row = cur.fetchone()
     conn.close()
 
     if not row:
@@ -130,23 +131,24 @@ def register(body: RegisterBody):
         _raise(400, "验证码错误或已过期")
 
     conn = get_db()
-    exists = conn.execute(
-        "SELECT id FROM user WHERE email = ?", (email,)
-    ).fetchone()
-    if exists:
-        conn.close()
-        _raise(400, "该邮箱已注册")
+    with conn.cursor() as cur:
+        cur.execute("SELECT id FROM user WHERE email = %s", (email,))
+        exists = cur.fetchone()
+        if exists:
+            conn.close()
+            _raise(400, "该邮箱已注册")
 
-    username = _unique_username(conn, _username_from_email(email))
-    cur = conn.execute(
-        """
-        INSERT INTO user (username, password, email, remain_count)
-        VALUES (?, ?, ?, ?)
-        """,
-        (username, hash_password(password), email, REGISTER_FREE_COUNT),
-    )
-    user_id = cur.lastrowid
-    row = conn.execute("SELECT * FROM user WHERE id = ?", (user_id,)).fetchone()
+        username = _unique_username(conn, _username_from_email(email))
+        cur.execute(
+            """
+            INSERT INTO user (username, password, email, remain_count)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (username, hash_password(password), email, REGISTER_FREE_COUNT),
+        )
+        user_id = cur.lastrowid
+        cur.execute("SELECT * FROM user WHERE id = %s", (user_id,))
+        row = cur.fetchone()
     conn.commit()
     conn.close()
 

@@ -80,7 +80,13 @@ PORT = _require_int("PORT")
 if PORT <= 0 or PORT > 65535:
     raise RuntimeError(f"配置项 PORT 必须在 1-65535 之间，当前值: {PORT}")
 
-DB_PATH = ROOT / "data" / "app.db"
+MYSQL_HOST = _require("MYSQL_HOST")
+MYSQL_PORT = _require_int("MYSQL_PORT")
+if MYSQL_PORT <= 0 or MYSQL_PORT > 65535:
+    raise RuntimeError(f"配置项 MYSQL_PORT 必须在 1-65535 之间，当前值: {MYSQL_PORT}")
+MYSQL_USER = _require("MYSQL_USER")
+MYSQL_PASSWORD = _optional("MYSQL_PASSWORD", "")
+MYSQL_DATABASE = _require("MYSQL_DATABASE")
 
 JWT_SECRET = _require("JWT_SECRET")
 ADMIN_PASSWORD = _require("ADMIN_PASSWORD")

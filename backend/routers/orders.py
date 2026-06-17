@@ -20,9 +20,9 @@ router = APIRouter(tags=["orders"])
 @router.get("/api/vip/packages")
 def get_packages():
     conn = get_db()
-    rows = conn.execute(
-        "SELECT * FROM vip_package WHERE is_enable = 1 ORDER BY price ASC"
-    ).fetchall()
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM vip_package WHERE is_enable = 1 ORDER BY price ASC")
+        rows = cur.fetchall()
     conn.close()
     return {"packages": [_row_dict(r) for r in rows]}
 
@@ -38,33 +38,37 @@ def create_order(body: CreateOrderBody, user: dict = Depends(require_user)):
         raise HTTPException(status_code=400, detail={"error": "请选择套餐"})
 
     conn = get_db()
-    pkg = conn.execute(
-        "SELECT * FROM vip_package WHERE id = ? AND is_enable = 1", (package_id,)
-    ).fetchone()
-    if not pkg:
-        conn.close()
-        raise HTTPException(status_code=404, detail={"error": "套餐不存在或已下架"})
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT * FROM vip_package WHERE id = %s AND is_enable = 1", (package_id,)
+        )
+        pkg = cur.fetchone()
+        if not pkg:
+            conn.close()
+            raise HTTPException(status_code=404, detail={"error": "套餐不存在或已下架"})
 
-    order_id = f"ORD{int(time.time())}{uuid.uuid4().hex[:6].upper()}"
-    conn.execute(
-        "INSERT INTO order_record (order_id, user_id, package_id, pay_amount) VALUES (?, ?, ?, ?)",
-        (order_id, user["id"], pkg["id"], pkg["price"]),
-    )
+        order_id = f"ORD{int(time.time())}{uuid.uuid4().hex[:6].upper()}"
+        cur.execute(
+            "INSERT INTO order_record (order_id, user_id, package_id, pay_amount) VALUES (%s, %s, %s, %s)",
+            (order_id, user["id"], pkg["id"], pkg["price"]),
+        )
 
-    expire_time = (datetime.now() + timedelta(days=pkg["valid_days"])).strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
-    conn.execute(
-        "UPDATE user SET vip_type = ?, vip_expire_time = ?, remain_count = remain_count + ? WHERE id = ?",
-        (pkg["type"], expire_time, pkg["total_count"], user["id"]),
-    )
-    conn.execute(
-        "UPDATE order_record SET pay_status = ?, finish_time = datetime('now', 'localtime') WHERE order_id = ?",
-        ("paid", order_id),
-    )
+        expire_time = (datetime.now() + timedelta(days=pkg["valid_days"])).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        cur.execute(
+            "UPDATE user SET vip_type = %s, vip_expire_time = %s, remain_count = remain_count + %s WHERE id = %s",
+            (pkg["type"], expire_time, pkg["total_count"], user["id"]),
+        )
+        cur.execute(
+            "UPDATE order_record SET pay_status = %s, finish_time = NOW() WHERE order_id = %s",
+            ("paid", order_id),
+        )
     conn.commit()
 
-    row = conn.execute("SELECT * FROM user WHERE id = ?", (user["id"],)).fetchone()
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM user WHERE id = %s", (user["id"],))
+        row = cur.fetchone()
     conn.close()
 
     return {
@@ -78,13 +82,15 @@ def create_order(body: CreateOrderBody, user: dict = Depends(require_user)):
 @router.get("/api/orders")
 def get_orders(user: dict = Depends(require_user)):
     conn = get_db()
-    rows = conn.execute(
-        """
-        SELECT o.*, p.package_name FROM order_record o
-        LEFT JOIN vip_package p ON o.package_id = p.id
-        WHERE o.user_id = ? ORDER BY o.create_time DESC LIMIT 50
-        """,
-        (user["id"],),
-    ).fetchall()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT o.*, p.package_name FROM order_record o
+            LEFT JOIN vip_package p ON o.package_id = p.id
+            WHERE o.user_id = %s ORDER BY o.create_time DESC LIMIT 50
+            """,
+            (user["id"],),
+        )
+        rows = cur.fetchall()
     conn.close()
     return {"orders": [_row_dict(r) for r in rows]}

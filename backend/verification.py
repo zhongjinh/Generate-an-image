@@ -31,8 +31,10 @@ def _now_str() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _parse_db_time(value: str) -> datetime:
-    return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+def _parse_db_time(value) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    return datetime.strptime(str(value), "%Y-%m-%d %H:%M:%S")
 
 
 def issue_register_code(email: str) -> dict:
@@ -41,38 +43,39 @@ def issue_register_code(email: str) -> dict:
         raise ValueError("邮箱格式不正确")
 
     conn = get_db()
-    exists = conn.execute(
-        "SELECT id FROM user WHERE email = ?", (email,)
-    ).fetchone()
-    if exists:
-        conn.close()
-        raise ValueError("该邮箱已注册")
-
-    recent = conn.execute(
-        """
-        SELECT created_at FROM email_verification
-        WHERE email = ? AND purpose = 'register'
-        ORDER BY id DESC LIMIT 1
-        """,
-        (email,),
-    ).fetchone()
-    if recent:
-        created = _parse_db_time(recent["created_at"])
-        if datetime.now() - created < timedelta(seconds=SEND_COOLDOWN_SECONDS):
+    with conn.cursor() as cur:
+        cur.execute("SELECT id FROM user WHERE email = %s", (email,))
+        exists = cur.fetchone()
+        if exists:
             conn.close()
-            raise ValueError(f"发送过于频繁，请 {SEND_COOLDOWN_SECONDS} 秒后再试")
+            raise ValueError("该邮箱已注册")
 
-    code = f"{random.randint(0, 999999):06d}"
-    expires = (datetime.now() + timedelta(minutes=CODE_TTL_MINUTES)).strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
-    conn.execute(
-        """
-        INSERT INTO email_verification (email, code, purpose, expires_at)
-        VALUES (?, ?, 'register', ?)
-        """,
-        (email, code, expires),
-    )
+        cur.execute(
+            """
+            SELECT created_at FROM email_verification
+            WHERE email = %s AND purpose = 'register'
+            ORDER BY id DESC LIMIT 1
+            """,
+            (email,),
+        )
+        recent = cur.fetchone()
+        if recent:
+            created = _parse_db_time(recent["created_at"])
+            if datetime.now() - created < timedelta(seconds=SEND_COOLDOWN_SECONDS):
+                conn.close()
+                raise ValueError(f"发送过于频繁，请 {SEND_COOLDOWN_SECONDS} 秒后再试")
+
+        code = f"{random.randint(0, 999999):06d}"
+        expires = (datetime.now() + timedelta(minutes=CODE_TTL_MINUTES)).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        cur.execute(
+            """
+            INSERT INTO email_verification (email, code, purpose, expires_at)
+            VALUES (%s, %s, 'register', %s)
+            """,
+            (email, code, expires),
+        )
     conn.commit()
     conn.close()
 
@@ -92,27 +95,29 @@ def verify_register_code(email: str, code: str) -> bool:
         return False
 
     conn = get_db()
-    row = conn.execute(
-        """
-        SELECT id, code, expires_at, used FROM email_verification
-        WHERE email = ? AND purpose = 'register'
-        ORDER BY id DESC LIMIT 1
-        """,
-        (email,),
-    ).fetchone()
-    if not row or row["used"]:
-        conn.close()
-        return False
-    if _parse_db_time(row["expires_at"]) < datetime.now():
-        conn.close()
-        return False
-    if row["code"] != code:
-        conn.close()
-        return False
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, code, expires_at, used FROM email_verification
+            WHERE email = %s AND purpose = 'register'
+            ORDER BY id DESC LIMIT 1
+            """,
+            (email,),
+        )
+        row = cur.fetchone()
+        if not row or row["used"]:
+            conn.close()
+            return False
+        if _parse_db_time(row["expires_at"]) < datetime.now():
+            conn.close()
+            return False
+        if row["code"] != code:
+            conn.close()
+            return False
 
-    conn.execute(
-        "UPDATE email_verification SET used = 1 WHERE id = ?", (row["id"],)
-    )
+        cur.execute(
+            "UPDATE email_verification SET used = 1 WHERE id = %s", (row["id"],)
+        )
     conn.commit()
     conn.close()
     return True
