@@ -83,17 +83,22 @@ async function doConvert() {
     return
   }
 
+  let payload = jsonStr
   try {
     JSON.parse(jsonStr)
   } catch (e) {
-    jsonError.value = `JSON 解析错误: ${e.message}`
-    return
+    if (jsonStr.startsWith('@startuml')) {
+      payload = JSON.stringify({ type: 'sequence', plantuml: jsonStr })
+    } else {
+      jsonError.value = `JSON 解析错误: ${e.message}`
+      return
+    }
   }
 
   jsonError.value = ''
 
   try {
-    const data = await api.convertJson({ json_content: jsonStr })
+    const data = await api.convertJson({ json_content: payload })
     if (data.remain_count !== undefined && auth.user && !auth.user.is_admin) {
       auth.updateUser({ ...auth.user, remain_count: data.remain_count })
     }

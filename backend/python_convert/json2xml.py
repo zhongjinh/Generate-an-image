@@ -26,6 +26,7 @@ from .adapters import (
     normalize_module,
     normalize_sequence,
     normalize_usecase,
+    _is_template_activity,
 )
 
 _BUILDERS_DIR = Path(__file__).resolve().parent / "builders"
@@ -50,7 +51,10 @@ _class = _load_module("class_diagram.py")
 _attr = _load_module("attr_diagram.py")
 _fl = _load_module("fl.py")
 _activity = _load_module("activity.py")
+_activity_tpl = _load_module("activity_from_template.py")
 _sequence = _load_module("sequence.py")
+_sequence_puml = _load_module("sequence_plantuml_embed.py")
+_plantuml_seq = _load_module("plantuml_sequence.py")
 _architecture = _load_module("architecture.py")
 
 
@@ -101,6 +105,13 @@ def build_class_diagram(cfg: dict[str, Any]) -> str:
 
 def build_activity_diagram(cfg: dict[str, Any]) -> str:
     cfg = normalize_activity(cfg)
+    if _is_template_activity(cfg):
+        tpl = Path(cfg["template_xml"])
+        if not tpl.is_absolute():
+            tpl = TEMPLATES / tpl.name
+        cfg = dict(cfg)
+        cfg["template_xml"] = str(tpl)
+        return _tree_to_str(_activity_tpl.build_from_template(cfg), xml_declaration=False)
     return _tree_to_str(_activity.build_document(cfg))
 
 
@@ -111,6 +122,20 @@ def build_architecture_diagram(cfg: dict[str, Any]) -> str:
 
 def build_sequence_diagram(cfg: dict[str, Any]) -> str:
     cfg = normalize_sequence(cfg)
+    source = (cfg.get("_plantuml_source") or cfg.get("plantuml") or "").strip()
+    if not source and cfg.get("participants") and cfg.get("messages"):
+        source = _plantuml_seq.to_plantuml(cfg)
+        cfg = dict(cfg)
+        cfg["_plantuml_source"] = source
+
+    if source:
+        try:
+            tree = _sequence_puml.build_from_cfg(cfg)
+            return _tree_to_str(tree, xml_declaration=False)
+        except Exception as exc:
+            if cfg.get("_plantuml_source") or cfg.get("plantuml"):
+                raise ValueError(f"PlantUML 序列图渲染失败: {exc}") from exc
+
     return _tree_to_str(_sequence.build_document(cfg))
 
 
@@ -132,14 +157,40 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], str]] = {
 }
 
 
-def convert(json_str: str) -> str:
-    cfg = json.loads(json_str)
+def convert(input_str: str) -> str:
+    text = input_str.strip()
+    cfg = _parse_config(text)
     cfg = normalize(cfg)
     chart_type = cfg["type"]
     builder = BUILDERS.get(chart_type)
     if not builder:
         raise ValueError(f"不支持的图表类型: {chart_type}，支持: {', '.join(BUILDERS.keys())}")
     return builder(cfg)
+
+
+def _parse_config(text: str) -> dict[str, Any]:
+    plantuml_mod = _load_module("plantuml_sequence.py")
+
+    if text.startswith("@startuml"):
+        parsed = plantuml_mod.parse_plantuml_sequence(text)
+        return plantuml_mod.attach_plantuml_source(parsed, text)
+
+    try:
+        cfg = json.loads(text)
+    except json.JSONDecodeError:
+        if plantuml_mod.is_plantuml_sequence(text):
+            parsed = plantuml_mod.parse_plantuml_sequence(text)
+            return plantuml_mod.attach_plantuml_source(parsed, text)
+        raise
+
+    if isinstance(cfg.get("plantuml"), str) and cfg.get("plantuml").strip():
+        parsed = plantuml_mod.parse_plantuml_sequence(cfg["plantuml"])
+        merged = plantuml_mod.attach_plantuml_source(parsed, cfg["plantuml"])
+        if cfg.get("title"):
+            merged["title"] = cfg["title"]
+        return merged
+
+    return cfg
 
 
 def main() -> int:

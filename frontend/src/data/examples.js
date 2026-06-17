@@ -128,22 +128,23 @@ export const EXAMPLES = {
   },
   activity: {
     type: 'activity',
-    title: '用户登录活动图',
+    title: '论坛发帖功能活动图',
     nodes: [
-      { name: '开始', type: 'start' },
-      { name: '输入信息', type: 'action' },
-      { name: '验证', type: 'action' },
-      { name: '通过？', type: 'decision' },
-      { name: '进入系统', type: 'action' },
-      { name: '结束', type: 'end' }
+      { match_text: '用户', text: '用户' },
+      { match_text: '系统', text: '后台系统' },
+      { match_text: '数据库', text: '数据库' },
+      { match_text: '登录后台系统', text: '登录系统' },
+      { match_text: '进入商家入驻审核模块', text: '进入交流论坛' },
+      { match_text: '校验资料完整性', text: '敏感词与内容校验' },
+      { match_text: '查看待审核资料', text: '填写帖子标题与内容' },
+      { match_text: '资料是否完整？', text: '内容是否包含敏感词？' },
+      { match_text: '更新商家状态', text: '保存帖子数据\n增加用户积分' },
+      { match_text: '标注驳回原因', text: '显示违规内容提示' },
+      { match_text: '同步结果至前端', text: '返回发布结果' }
     ],
-    flows: [
-      { from: '开始', to: '输入信息' },
-      { from: '输入信息', to: '验证' },
-      { from: '验证', to: '通过？' },
-      { from: '通过？', to: '进入系统', label: '是' },
-      { from: '通过？', to: '输入信息', label: '否', dashed: true },
-      { from: '进入系统', to: '结束' }
+    links: [
+      { match_text: '是', text: '是' },
+      { match_text: '否', text: '否' }
     ]
   },
   architecture: {
@@ -235,22 +236,63 @@ export const EXAMPLES = {
   sequence: {
     type: 'sequence',
     title: '用户登录序列图',
-    participants: [
-      { id: 'user', name: '用户' },
-      { id: 'frontend', name: '前端' },
-      { id: 'api', name: '登录接口' },
-      { id: 'auth', name: '认证服务' },
-      { id: 'db', name: '数据库' }
-    ],
-    messages: [
-      { from: 'user', to: 'frontend', label: '输入账号密码' },
-      { from: 'frontend', to: 'api', label: 'POST /api/login' },
-      { from: 'api', to: 'auth', label: '校验账号密码' },
-      { from: 'auth', to: 'db', label: '查询用户信息' },
-      { from: 'db', to: 'auth', label: '返回用户信息', type: 'return' },
-      { from: 'auth', to: 'api', label: '校验成功', type: 'return' },
-      { from: 'api', to: 'frontend', label: '200 OK', type: 'return' },
-      { from: 'frontend', to: 'user', label: '跳转首页', type: 'return' }
-    ]
+    plantuml: [
+      '@startuml',
+      '!pragma theme plain',
+      'skinparam backgroundColor white',
+      'skinparam actorBackgroundColor white',
+      'skinparam participantBackgroundColor white',
+      'skinparam databaseBackgroundColor white',
+      'skinparam sequenceMessageAlign center',
+      'skinparam maxMessageSize 1200',
+      'skinparam ArrowColor black',
+      'skinparam LifeLineBackgroundColor white',
+      '',
+      'actor "用户" as User #white',
+      'participant "前端" as Frontend #white',
+      'participant "登录接口" as LoginAPI #white',
+      'participant "认证服务" as AuthService #white',
+      'database "数据库" as DB #white',
+      '',
+      'activate User #white',
+      '',
+      'User -> Frontend: 1. 输入账号学号与密码',
+      'activate Frontend #white',
+      '',
+      'Frontend -> LoginAPI: 2. POST /api/login\\n账号与密码',
+      'activate LoginAPI #white',
+      '',
+      'LoginAPI -> AuthService: 3. 校验账号密码',
+      'activate AuthService #white',
+      '',
+      'AuthService -> DB: 4. 查询用户信息',
+      'activate DB #white',
+      'DB --> AuthService: 5. 返回用户信息含角色',
+      'deactivate DB',
+      '',
+      'AuthService -> AuthService: 6. 生成会话或令牌',
+      'activate AuthService #white',
+      'deactivate AuthService',
+      '',
+      'AuthService --> LoginAPI: 7. 校验成功返回用户信息与令牌',
+      'deactivate AuthService',
+      '',
+      'LoginAPI --> Frontend: 8. 200 OK 含 token role menus',
+      'deactivate LoginAPI',
+      '',
+      'Frontend -> Frontend: 9. 保存认证信息',
+      'activate Frontend #white',
+      'deactivate Frontend',
+      '',
+      'Frontend -> Frontend: 10. 按角色加载可访问菜单',
+      'activate Frontend #white',
+      'deactivate Frontend',
+      '',
+      'Frontend --> User: 11. 跳转首页',
+      'deactivate Frontend',
+      '',
+      'deactivate User',
+      '@enduml'
+    ].join('\n')
   }
 };

@@ -26,8 +26,12 @@ def detect_type(cfg: dict[str, Any]) -> str:
         return "class"
     if cfg.get("layers"):
         return "architecture"
+    if cfg.get("plantuml"):
+        return "sequence"
     if cfg.get("participants") and cfg.get("messages"):
         return "sequence"
+    if cfg.get("nodes") and _is_template_activity(cfg):
+        return "activity"
     if cfg.get("nodes") and cfg.get("flows"):
         return "activity"
     if cfg.get("steps"):
@@ -164,7 +168,26 @@ def normalize_class(cfg: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _is_template_activity(cfg: dict[str, Any]) -> bool:
+    nodes = cfg.get("nodes") or []
+    return any(
+        isinstance(n, dict) and (n.get("match_text") or n.get("match"))
+        for n in nodes
+    )
+
+
 def normalize_activity(cfg: dict[str, Any]) -> dict[str, Any]:
+    if _is_template_activity(cfg):
+        title = cfg.get("title") or (cfg.get("meta") or {}).get("title", "")
+        tpl = cfg.get("template_xml") or str(TEMPLATES / "activity_diagram.xml")
+        return {
+            **cfg,
+            "title": title,
+            "template_xml": tpl,
+            "nodes": list(cfg.get("nodes") or []),
+            "links": list(cfg.get("links") or []),
+        }
+
     nodes = []
     for n in cfg.get("nodes") or []:
         nodes.append({

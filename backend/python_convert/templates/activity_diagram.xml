@@ -1,0 +1,166 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="商家入驻审核活动图" id="RTjy1MqG-lU4m2hQVnO0">
+    <mxGraphModel dx="1297" dy="731" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ========== 三泳道（无填充颜色，仅边框） ========== -->
+        <!-- 泳道1：用户 -->
+        <mxCell id="swimlane_user" value="用户" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=40;fillColor=none;strokeColor=#000000;fontSize=14;fontFamily=宋体;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="190" height="720" as="geometry" />
+        </mxCell>
+
+        <!-- 泳道2：系统 -->
+        <mxCell id="swimlane_system" value="系统" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=40;fillColor=none;strokeColor=#000000;fontSize=14;fontFamily=宋体;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="230" y="40" width="190" height="720" as="geometry" />
+        </mxCell>
+
+        <!-- 泳道3：数据库 -->
+        <mxCell id="swimlane_db" value="数据库" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=40;fillColor=none;strokeColor=#000000;fontSize=14;fontFamily=宋体;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="420" y="40" width="190" height="720" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== 用户泳道（x: 40~230, 中心点: 135） ==================== -->
+        <!-- 开始节点 -->
+        <mxCell id="start" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="120" y="90" width="30" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- 用户：登录后台系统 -->
+        <mxCell id="user_login" value="登录后台系统" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontFamily=宋体;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="75" y="150" width="120" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- 用户：查看待审核资料 -->
+        <mxCell id="user_view" value="查看待审核资料" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontFamily=宋体;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="75" y="300" width="120" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- 用户：标注驳回原因 -->
+        <mxCell id="user_reject" value="标注驳回原因" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontFamily=宋体;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="75" y="550" width="120" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- 结束节点 -->
+        <mxCell id="end" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=#000000;shape=endState;" vertex="1" parent="1">
+          <mxGeometry x="120" y="700" width="30" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== 系统泳道（x: 230~420, 中心点: 325） ==================== -->
+        <!-- 系统：进入商家入驻审核模块 -->
+        <mxCell id="sys_enter" value="进入商家入驻审核模块" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontFamily=宋体;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="265" y="150" width="120" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- 系统：判断节点 -->
+        <mxCell id="sys_decision" value="资料是否完整？" style="rhombus;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontFamily=宋体;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="270" y="410" width="110" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- 系统：同步结果至前端 -->
+        <mxCell id="sys_sync" value="同步结果至前端" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontFamily=宋体;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="265" y="620" width="120" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== 数据库泳道（x: 420~610, 中心点: 515） ==================== -->
+        <!-- 数据库：校验资料完整性 -->
+        <mxCell id="db_check" value="校验资料完整性" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontFamily=宋体;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="455" y="240" width="120" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- 数据库：更新商家状态 -->
+        <mxCell id="db_update" value="更新商家状态" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontFamily=宋体;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="455" y="500" width="120" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== 连线 ==================== -->
+        <!-- 开始 → 用户登录 -->
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;" edge="1" parent="1" source="start" target="user_login">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- 用户登录 → 系统进入 -->
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;" edge="1" parent="1" source="user_login" target="sys_enter">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- 系统进入 → 数据库校验 -->
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;" edge="1" parent="1" source="sys_enter" target="db_check">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="325" y="195" />
+              <mxPoint x="325" y="220" />
+              <mxPoint x="515" y="220" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 数据库校验 → 用户查看 -->
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;" edge="1" parent="1" source="db_check" target="user_view">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="515" y="285" />
+              <mxPoint x="515" y="280" />
+              <mxPoint x="135" y="280" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 用户查看 → 系统判断 -->
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;" edge="1" parent="1" source="user_view" target="sys_decision">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- 判断 → 数据库更新（是） -->
+        <mxCell id="e6" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;fontFamily=宋体;fontSize=13;" edge="1" parent="1" source="sys_decision" target="db_update">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="380" y="450" />
+              <mxPoint x="420" y="450" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 判断 → 用户驳回（否） -->
+        <mxCell id="e7" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;fontFamily=宋体;fontSize=13;" edge="1" parent="1" source="sys_decision" target="user_reject">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="270" y="450" />
+              <mxPoint x="210" y="450" />
+              <mxPoint x="210" y="572" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 用户驳回 → 系统同步 -->
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;" edge="1" parent="1" source="user_reject" target="sys_sync">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- 数据库更新 → 系统同步 -->
+        <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;" edge="1" parent="1" source="db_update" target="sys_sync">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="455" y="522" />
+              <mxPoint x="440" y="522" />
+              <mxPoint x="440" y="642" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 系统同步 → 结束 -->
+        <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;" edge="1" parent="1" source="sys_sync" target="end">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="325" y="665" />
+              <mxPoint x="325" y="715" />
+              <mxPoint x="135" y="715" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
