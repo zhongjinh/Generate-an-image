@@ -29,7 +29,9 @@ def main():
     print("新用户注册赠送 1 次生成次数")
     print("按 Ctrl+C 停止")
     print("=" * 50)
-    uvicorn.run("backend.main:app", host=HOST, port=PORT, reload=ENV == "development")
+    # Windows 下 reload 易产生僵尸进程，多实例抢端口会导致邮件等功能异常
+    use_reload = ENV == "development" and sys.platform != "win32"
+    uvicorn.run("backend.main:app", host=HOST, port=PORT, reload=use_reload)
 
 
 if __name__ == "__main__":

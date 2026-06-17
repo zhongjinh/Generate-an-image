@@ -6,14 +6,17 @@ const auth = useAuthStore()
 const showModal = ref(false)
 const tab = ref('login')
 
-const loginUser = ref('')
+const loginEmail = ref('')
 const loginPass = ref('')
-const regUser = ref('')
+const regEmail = ref('')
+const regCode = ref('')
 const regPass = ref('')
-const regPhone = ref('')
 const formError = ref('')
 const formSuccess = ref('')
 const loading = ref(false)
+const codeSending = ref(false)
+const codeCountdown = ref(0)
+let countdownTimer = null
 
 function clearMessages() {
   formError.value = ''
@@ -25,6 +28,7 @@ function open(tabName = 'login') {
   clearMessages()
   loginPass.value = ''
   regPass.value = ''
+  regCode.value = ''
   showModal.value = true
 }
 
@@ -33,17 +37,53 @@ function close() {
   clearMessages()
   loginPass.value = ''
   regPass.value = ''
+  regCode.value = ''
 }
 
 function onOverlayClick(e) {
   if (e.target.classList.contains('modal-overlay')) close()
 }
 
+function startCountdown(seconds = 60) {
+  codeCountdown.value = seconds
+  if (countdownTimer) clearInterval(countdownTimer)
+  countdownTimer = setInterval(() => {
+    codeCountdown.value -= 1
+    if (codeCountdown.value <= 0) {
+      clearInterval(countdownTimer)
+      countdownTimer = null
+    }
+  }, 1000)
+}
+
+async function sendCode() {
+  clearMessages()
+  const email = regEmail.value.trim()
+  if (!email) {
+    formError.value = '请先填写邮箱'
+    return
+  }
+  if (codeCountdown.value > 0 || codeSending.value) return
+
+  codeSending.value = true
+  try {
+    const res = await auth.sendCode(email)
+    if (res.success) {
+      formSuccess.value = res.message || '验证码已发送，请查收邮件'
+      startCountdown(60)
+    } else {
+      formError.value = res.error || '发送失败'
+    }
+  } finally {
+    codeSending.value = false
+  }
+}
+
 async function doLogin(e) {
   e.preventDefault()
   clearMessages()
-  if (!loginUser.value.trim()) {
-    formError.value = '请输入用户名'
+  if (!loginEmail.value.trim()) {
+    formError.value = '请输入邮箱'
     return
   }
   if (!loginPass.value) {
@@ -51,7 +91,7 @@ async function doLogin(e) {
     return
   }
   loading.value = true
-  const res = await auth.login(loginUser.value.trim(), loginPass.value)
+  const res = await auth.login(loginEmail.value.trim(), loginPass.value)
   loading.value = false
   if (res.success) {
     loginPass.value = ''
@@ -64,13 +104,13 @@ async function doLogin(e) {
 async function doRegister(e) {
   e.preventDefault()
   clearMessages()
-  const u = regUser.value.trim()
-  if (!u) {
-    formError.value = '请输入用户名'
+  const email = regEmail.value.trim()
+  if (!email) {
+    formError.value = '请输入邮箱'
     return
   }
-  if (u.length < 3 || u.length > 20) {
-    formError.value = '用户名长度须为 3-20 位'
+  if (!regCode.value.trim()) {
+    formError.value = '请输入邮箱验证码'
     return
   }
   if (!regPass.value) {
@@ -82,10 +122,10 @@ async function doRegister(e) {
     return
   }
   loading.value = true
-  const res = await auth.register(u, regPass.value, regPhone.value.trim())
+  const res = await auth.register(email, regPass.value, regCode.value.trim())
   loading.value = false
   if (res.success) {
-    formSuccess.value = '注册成功！已赠送 1 次免费生成次数'
+    formSuccess.value = '注册成功！已赠送免费生成次数'
     setTimeout(close, 1200)
   } else {
     formError.value = res.error || '注册失败'
@@ -102,7 +142,7 @@ defineExpose({ open })
         <button type="button" class="modal-close" aria-label="关闭" @click="close">&times;</button>
         <div class="auth-modal-header">
           <h2>{{ tab === 'login' ? '欢迎回来' : '创建账号' }}</h2>
-          <p>{{ tab === 'login' ? '登录后即可生成专业图表' : '注册即赠送 1 次免费生成次数' }}</p>
+          <p>{{ tab === 'login' ? '使用邮箱登录后即可生成专业图表' : '验证邮箱后注册，赠送免费生成次数' }}</p>
         </div>
         <div class="auth-tabs">
           <button
@@ -124,30 +164,77 @@ defineExpose({ open })
 
           <form v-show="tab === 'login'" @submit="doLogin">
             <div class="form-group">
-              <label>用户名</label>
-              <input v-model="loginUser" type="text" placeholder="请输入用户名" autocomplete="username" />
+              <label>邮箱</label>
+              <input
+                v-model="loginEmail"
+                type="email"
+                placeholder="请输入注册邮箱"
+                autocomplete="email"
+              />
             </div>
             <div class="form-group">
               <label>密码</label>
-              <input v-model="loginPass" type="password" placeholder="请输入密码" autocomplete="current-password" />
+              <input
+                v-model="loginPass"
+                type="password"
+                placeholder="请输入密码"
+                autocomplete="current-password"
+              />
             </div>
-            <button type="submit" class="btn-auth" :disabled="loading">{{ loading ? '处理中...' : '登录' }}</button>
+            <button type="submit" class="btn-auth" :disabled="loading">
+              {{ loading ? '处理中...' : '登录' }}
+            </button>
+            <p class="auth-tip">管理员仍可使用用户名 <strong>admin</strong> 登录</p>
           </form>
 
           <form v-show="tab === 'register'" @submit="doRegister">
             <div class="form-group">
-              <label>用户名</label>
-              <input v-model="regUser" type="text" placeholder="3-20 位字符" autocomplete="username" />
+              <label>邮箱</label>
+              <input
+                v-model="regEmail"
+                type="email"
+                placeholder="用于登录与接收验证码"
+                autocomplete="email"
+              />
+            </div>
+            <div class="form-group">
+              <label>验证码</label>
+              <div class="code-row">
+                <input
+                  v-model="regCode"
+                  type="text"
+                  maxlength="6"
+                  placeholder="6 位验证码"
+                  autocomplete="one-time-code"
+                />
+                <button
+                  type="button"
+                  class="btn-send-code"
+                  :disabled="codeSending || codeCountdown > 0"
+                  @click="sendCode"
+                >
+                  {{
+                    codeSending
+                      ? '发送中...'
+                      : codeCountdown > 0
+                        ? `${codeCountdown}s 后重发`
+                        : '获取验证码'
+                  }}
+                </button>
+              </div>
             </div>
             <div class="form-group">
               <label>密码</label>
-              <input v-model="regPass" type="password" placeholder="至少 6 位" autocomplete="new-password" />
+              <input
+                v-model="regPass"
+                type="password"
+                placeholder="至少 6 位"
+                autocomplete="new-password"
+              />
             </div>
-            <div class="form-group">
-              <label>手机号 <span style="color:#94a3b8;font-weight:400">（可选）</span></label>
-              <input v-model="regPhone" type="text" placeholder="手机号" autocomplete="tel" />
-            </div>
-            <button type="submit" class="btn-auth" :disabled="loading">{{ loading ? '处理中...' : '注册并领取免费次数' }}</button>
+            <button type="submit" class="btn-auth" :disabled="loading">
+              {{ loading ? '处理中...' : '注册并领取免费次数' }}
+            </button>
             <p class="auth-tip">注册即赠送 <strong>1 次</strong> 免费图表生成</p>
           </form>
         </div>

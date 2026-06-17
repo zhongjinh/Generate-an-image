@@ -67,6 +67,11 @@ def _require_choice(name: str, choices: set[str]) -> str:
     return value
 
 
+def _optional(name: str, default: str) -> str:
+    value = os.environ.get(name, default).strip()
+    return value or default
+
+
 ENV = _require_choice("APP_ENV", {"development", "production"})
 DEBUG = ENV == "development"
 
@@ -90,3 +95,13 @@ if CONVERT_PORT <= 0 or CONVERT_PORT > 65535:
     raise RuntimeError(f"配置项 CONVERT_PORT 必须在 1-65535 之间，当前值: {CONVERT_PORT}")
 
 PUBLIC_CONVERT = _require_choice("PUBLIC_CONVERT", {"0", "1"}) == "1"
+
+SMTP_HOST = _require("SMTP_HOST")
+SMTP_PORT = _require_int("SMTP_PORT")
+if SMTP_PORT <= 0 or SMTP_PORT > 65535:
+    raise RuntimeError(f"配置项 SMTP_PORT 必须在 1-65535 之间，当前值: {SMTP_PORT}")
+SMTP_USER = _require("SMTP_USER")
+SMTP_PASSWORD = _require("SMTP_PASSWORD")
+SMTP_FROM = _require("SMTP_FROM")
+SMTP_FROM_NAME = _optional("SMTP_FROM_NAME", "图表在线生成器")
+SMTP_USE_TLS = _require_choice("SMTP_USE_TLS", {"0", "1"}) == "1"

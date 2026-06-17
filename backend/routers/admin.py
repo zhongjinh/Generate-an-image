@@ -17,7 +17,7 @@ def admin_users(_: dict = Depends(require_admin)):
     conn = get_db()
     rows = conn.execute(
         """
-        SELECT id, username, phone, is_admin, remain_count, vip_type,
+        SELECT id, username, email, phone, is_admin, remain_count, vip_type,
                vip_expire_time, create_time, is_disabled
         FROM user ORDER BY create_time DESC
         """

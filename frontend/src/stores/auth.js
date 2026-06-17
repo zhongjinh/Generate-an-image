@@ -31,9 +31,13 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('user')
   }
 
-  async function login(username, password) {
+  async function login(email, password) {
     try {
-      const res = await api.login({ username, password })
+      const account = email.trim()
+      const payload = account.includes('@')
+        ? { email: account, password }
+        : { username: account, password }
+      const res = await api.login(payload)
       if (res.token) {
         saveSession(res.token, res.user)
         return { success: true }
@@ -44,9 +48,18 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function register(username, password, phone = '') {
+  async function sendCode(email) {
     try {
-      const res = await api.register({ username, password, phone })
+      const res = await api.sendCode({ email: email.trim() })
+      return { success: true, message: res.message }
+    } catch (e) {
+      return { success: false, error: e.error || '发送失败' }
+    }
+  }
+
+  async function register(email, password, code) {
+    try {
+      const res = await api.register({ email: email.trim(), password, code })
       if (res.token) {
         saveSession(res.token, res.user)
         return { success: true }
@@ -89,6 +102,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoggedIn,
     isAdmin,
     login,
+    sendCode,
     register,
     logout,
     refreshUser,

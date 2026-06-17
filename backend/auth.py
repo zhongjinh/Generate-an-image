@@ -47,9 +47,15 @@ def verify_token(token: str) -> dict | None:
 
 
 def user_payload(row) -> dict:
+    email = ""
+    try:
+        email = row["email"] or ""
+    except (KeyError, IndexError):
+        pass
     return {
         "id": row["id"],
         "username": row["username"],
+        "email": email,
         "is_admin": bool(row["is_admin"]),
         "remain_count": row["remain_count"],
         "vip_type": row["vip_type"] or "",

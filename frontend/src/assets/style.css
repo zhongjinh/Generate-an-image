@@ -551,6 +551,40 @@ body {
 
 .auth-tip strong { color: var(--warning); }
 
+.code-row {
+  display: flex;
+  gap: 10px;
+}
+
+.code-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.btn-send-code {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btn-send-code:hover:not(:disabled) {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-send-code:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .modal-close {
   position: absolute;
   top: 16px;

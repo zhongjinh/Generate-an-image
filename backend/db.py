@@ -18,7 +18,7 @@ DEFAULT_PACKAGES = [
 
 def get_db() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(DB_PATH), timeout=15)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -40,6 +40,29 @@ def init_db() -> None:
             vip_expire_time TEXT DEFAULT '',
             create_time TEXT DEFAULT (datetime('now', 'localtime')),
             is_disabled INTEGER DEFAULT 0
+        )
+        """
+    )
+
+    cols = {row[1] for row in cur.execute("PRAGMA table_info(user)").fetchall()}
+    if "email" not in cols:
+        cur.execute("ALTER TABLE user ADD COLUMN email TEXT")
+
+    cur.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_user_email ON user(email) "
+        "WHERE email IS NOT NULL AND email != ''"
+    )
+
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS email_verification (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL,
+            code TEXT NOT NULL,
+            purpose TEXT DEFAULT 'register',
+            created_at TEXT DEFAULT (datetime('now', 'localtime')),
+            expires_at TEXT NOT NULL,
+            used INTEGER DEFAULT 0
         )
         """
     )

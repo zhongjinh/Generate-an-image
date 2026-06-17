@@ -86,12 +86,13 @@ async function toggleDisable(id) {
         <div class="table-wrap">
           <table class="admin-table">
             <thead>
-              <tr><th>ID</th><th>用户名</th><th>手机号</th><th>剩余次数</th><th>会员</th><th>状态</th><th>注册时间</th><th>操作</th></tr>
+              <tr><th>ID</th><th>用户名</th><th>邮箱</th><th>手机号</th><th>剩余次数</th><th>会员</th><th>状态</th><th>注册时间</th><th>操作</th></tr>
             </thead>
             <tbody>
               <tr v-for="u in users" :key="u.id">
                 <td>{{ u.id }}</td>
                 <td>{{ u.username }}</td>
+                <td>{{ u.email || '-' }}</td>
                 <td>{{ u.phone || '-' }}</td>
                 <td>{{ u.remain_count }}</td>
                 <td>{{ u.vip_type || '普通' }}</td>
