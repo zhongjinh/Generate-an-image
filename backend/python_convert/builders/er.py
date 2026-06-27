@@ -7,7 +7,7 @@
 - 布局：默认 **中心实体 + 其余围一圈**（`center_entity` 可指定；否则优先名为「用户」的实体，再否则取关系最多的实体）
 - 关系：菱形 `rhombus;whiteSpace=wrap;html=1;rounded=0;`
 - 连线：`endArrow=none;html=1;rounded=0;`，`mxCell` 设 `source`/`target` 绑定实体、菱形、关系属性椭圆；首段实体侧可带 `exitX/exitY`，`mxGeometry` 保留 `mxPoint` 锚点
-- 基数（如 1、N）：挂在对应边上的 `edgeLabel`（`font-size: 15px`），拖动动点仍跟线走
+- 基数（如 1、N）：绝对坐标放在对应线段几何中点（`font-size: 17px`）
 - 多行缩进；默认不写 XML 声明（与 E-R图.xml 一致）
 
 用法:
@@ -46,6 +46,12 @@ EDGE_PLAIN = "endArrow=none;html=1;rounded=0;"
 
 DEFAULT_PAGE_W = 1703
 DEFAULT_PAGE_H = 1169
+FONT_SIZE = 17
+GRID_H_SPACING = 400.0
+GRID_V_SPACING = 250.0
+GRID_ORIGIN_X = 100.0
+GRID_ORIGIN_Y = 100.0
+DIAMOND_GAP = 50.0
 
 
 def _diagram_id() -> str:
@@ -62,7 +68,7 @@ def _font_label(text: str, px: int) -> str:
 
 
 def _entity_value(name: str, attributes: list[str]) -> str:
-    body = _font_label(name, 14)
+    body = _font_label(name, FONT_SIZE)
     if attributes:
         lines = "<br/>".join(html.escape(a) for a in attributes)
         body += f'<br/><font style="font-size: 12px;">{lines}</font>'
@@ -151,12 +157,154 @@ def _ellipse_border_toward(
     return cx + dx / scale, cy + dy / scale
 
 
+def _l_elbow_point(from_pos: dict[str, float], to_pos: dict[str, float]) -> tuple[float, float]:
+    """L 形折线肘点：先沿主轴走直线，再转向目标。"""
+    from_cx, from_cy = from_pos["center_x"], from_pos["center_y"]
+    to_cx, to_cy = to_pos["center_x"], to_pos["center_y"]
+    dx, dy = to_cx - from_cx, to_cy - from_cy
+    if abs(dx) >= abs(dy):
+        return to_cx, from_cy
+    return from_cx, to_cy
+
+
+def _relationship_layout_kind(from_pos: dict[str, float], to_pos: dict[str, float]) -> str:
+    dx = to_pos["center_x"] - from_pos["center_x"]
+    dy = to_pos["center_y"] - from_pos["center_y"]
+    if abs(dy) <= from_pos["height"] * 0.8:
+        return "horizontal"
+    if abs(dx) <= from_pos["width"] * 0.8:
+        return "vertical"
+    return "diagonal"
+
+
 def _nearest_corner_idx(corners: dict[int, tuple[float, float]], px: float, py: float) -> int:
     return min(corners.keys(), key=lambda k: (corners[k][0] - px) ** 2 + (corners[k][1] - py) ** 2)
 
 
 def _opp_corner_idx(i: int) -> int:
     return {1: 3, 2: 4, 3: 1, 4: 2}[i]
+
+
+def _corner_toward_point(rx: float, ry: float, rw: float, rh: float, px: float, py: float) -> int:
+    cx, cy = _rect_center(rx, ry, rw, rh)
+    dx, dy = px - cx, py - cy
+    if abs(dx) < 1e-6 and abs(dy) < 1e-6:
+        return 4
+    if abs(dx) >= abs(dy):
+        return 4 if dx < 0 else 2
+    return 1 if dy < 0 else 3
+
+
+def _adjacent_corners(i: int) -> list[int]:
+    return {1: [2, 4], 2: [1, 3], 3: [2, 4], 4: [1, 3]}[i]
+
+
+def _conn_pos(x: float, y: float, w: float, h: float) -> dict[str, float]:
+    return {
+        "x": x,
+        "y": y,
+        "width": w,
+        "height": h,
+        "center_x": x + w / 2.0,
+        "center_y": y + h / 2.0,
+        "top_y": y,
+        "bottom_y": y + h,
+    }
+
+
+def _pick_connection_corners(
+    rx: float,
+    ry: float,
+    rw: float,
+    rh: float,
+    from_pos: dict[str, float],
+    to_pos: dict[str, float],
+) -> tuple[int, int]:
+    from_cx, from_cy = from_pos["center_x"], from_pos["center_y"]
+    to_cx, to_cy = to_pos["center_x"], to_pos["center_y"]
+    in_idx = _corner_toward_point(rx, ry, rw, rh, from_cx, from_cy)
+    dx_e, dy_e = to_cx - from_cx, to_cy - from_cy
+    corners = _rhombus_corners(rx, ry, rw, rh)
+
+    if abs(dy_e) <= from_pos["height"] * 0.8:
+        if in_idx == 4:
+            out_idx = 2
+        elif in_idx == 2:
+            out_idx = 4
+        else:
+            out_idx = 2 if to_cx > from_cx else 4
+    elif abs(dx_e) <= from_pos["width"] * 0.8:
+        if in_idx == 1:
+            out_idx = 3
+        elif in_idx == 3:
+            out_idx = 1
+        else:
+            out_idx = 3 if to_cy > from_cy else 1
+    else:
+        mx, my = rx + rw / 2.0, ry + rh / 2.0
+        if abs(dx_e) >= abs(dy_e):
+            in_idx = 4 if from_cx <= mx else 2
+            out_idx = 1 if to_cy < my else 3
+        else:
+            in_idx = 3 if from_cy <= my else 1
+            out_idx = 4 if to_cx < mx else 2
+        if out_idx not in _adjacent_corners(in_idx):
+            out_idx = min(
+                _adjacent_corners(in_idx),
+                key=lambda k: (corners[k][0] - to_cx) ** 2 + (corners[k][1] - to_cy) ** 2,
+            )
+    if in_idx == out_idx:
+        out_idx = _opp_corner_idx(in_idx)
+    return in_idx, out_idx
+
+
+def _entry_attrs(x: float, y: float, w: float, h: float, scx: float, scy: float) -> str:
+    cx, cy = _rect_center(x, y, w, h)
+    dx, dy = scx - cx, scy - cy
+    if abs(dx) >= abs(dy):
+        if dx >= 0:
+            return "entryX=1;entryY=0.5;entryDx=0;entryDy=0;"
+        return "entryX=0;entryY=0.5;entryDx=0;entryDy=0;"
+    if dy >= 0:
+        return "entryX=0.5;entryY=1;entryDx=0;entryDy=0;"
+    return "entryX=0.5;entryY=0;entryDx=0;entryDy=0;"
+
+
+def _rhombus_corner_attrs(corner_idx: int, is_entry: bool) -> str:
+    prefix = "entry" if is_entry else "exit"
+    attrs = {
+        1: f"{prefix}X=0.5;{prefix}Y=0;{prefix}Dx=0;{prefix}Dy=0;",
+        2: f"{prefix}X=1;{prefix}Y=0.5;{prefix}Dx=0;{prefix}Dy=0;",
+        3: f"{prefix}X=0.5;{prefix}Y=1;{prefix}Dx=0;{prefix}Dy=0;",
+        4: f"{prefix}X=0;{prefix}Y=0.5;{prefix}Dx=0;{prefix}Dy=0;",
+    }
+    return attrs[corner_idx]
+
+
+def _orthogonal_waypoint(sx: float, sy: float, tx: float, ty: float) -> tuple[float, float] | None:
+    if abs(sx - tx) < 1e-6 or abs(sy - ty) < 1e-6:
+        return None
+    if abs(tx - sx) >= abs(ty - sy):
+        return tx, sy
+    return sx, ty
+
+
+def _segment_midpoint(
+    sx: float,
+    sy: float,
+    tx: float,
+    ty: float,
+    waypoint: tuple[float, float] | None,
+) -> tuple[float, float]:
+    """线段几何中点；L 形折线取较长那段的中点。"""
+    if waypoint is None:
+        return (sx + tx) / 2.0, (sy + ty) / 2.0
+    wx, wy = waypoint
+    l1 = math.hypot(wx - sx, wy - sy)
+    l2 = math.hypot(tx - wx, ty - wy)
+    if l1 >= l2:
+        return (sx + wx) / 2.0, (sy + wy) / 2.0
+    return (wx + tx) / 2.0, (wy + ty) / 2.0
 
 
 def _exit_attrs(x: float, y: float, w: float, h: float, tcx: float, tcy: float) -> str:
@@ -252,6 +400,14 @@ def _mxcell_edge_points(
         "mxPoint",
         {"x": _fmt_num(sx), "y": _fmt_num(sy), "as": "sourcePoint"},
     )
+    waypoint = _orthogonal_waypoint(sx, sy, tx, ty)
+    if waypoint:
+        arr = ET.SubElement(g, "Array", {"as": "points"})
+        ET.SubElement(
+            arr,
+            "mxPoint",
+            {"x": _fmt_num(waypoint[0]), "y": _fmt_num(waypoint[1])},
+        )
     ET.SubElement(
         g,
         "mxPoint",
@@ -259,50 +415,60 @@ def _mxcell_edge_points(
     )
 
 
-EDGE_LABEL_STYLE = (
-    "edgeLabel;html=1;align=center;verticalAlign=middle;rounded=0;"
-    "resizable=0;points=[];"
+CARD_LABEL_W = 28.0
+CARD_LABEL_H = 24.0
+CARD_LABEL_STYLE = (
+    "text;html=1;strokeColor=none;fillColor=none;align=center;"
+    "verticalAlign=middle;whiteSpace=wrap;rounded=0;"
 )
 
 
-def _mxcell_edge_label(
+def _primary_segment_vector(
+    sx: float,
+    sy: float,
+    tx: float,
+    ty: float,
+    waypoint: tuple[float, float] | None,
+) -> tuple[float, float]:
+    if waypoint is None:
+        return tx - sx, ty - sy
+    wx, wy = waypoint
+    l1 = math.hypot(wx - sx, wy - sy)
+    l2 = math.hypot(tx - wx, ty - wy)
+    if l1 >= l2:
+        return wx - sx, wy - sy
+    return tx - wx, ty - wy
+
+
+def _mxcell_cardinality_label(
     root: ET.Element,
-    parent_edge_id: str,
     cell_id: str,
     text: str,
-    *,
-    x_rel: str,
-    y_rel: str,
-    off_x: float = 0.0,
-    off_y: float = 0.0,
+    sx: float,
+    sy: float,
+    tx: float,
+    ty: float,
+    waypoint: tuple[float, float] | None = None,
 ) -> None:
-    """基数等文字挂在边上（draw.io 随连线移动）。"""
-    c = ET.SubElement(
+    """基数标签放在线段中点上方（水平线）或左侧（垂直线）。"""
+    mx, my = _segment_midpoint(sx, sy, tx, ty, waypoint)
+    dx, dy = _primary_segment_vector(sx, sy, tx, ty, waypoint)
+    gap = 6.0
+    if abs(dx) >= abs(dy):
+        lx = mx - CARD_LABEL_W / 2.0
+        ly = my - CARD_LABEL_H - gap
+    else:
+        lx = mx - CARD_LABEL_W - gap
+        ly = my - CARD_LABEL_H / 2.0
+    _mxcell_vertex(
         root,
-        "mxCell",
-        {
-            "id": cell_id,
-            "value": _font_label(text, 14),
-            "style": EDGE_LABEL_STYLE,
-            "vertex": "1",
-            "connectable": "0",
-            "parent": parent_edge_id,
-        },
-    )
-    g = ET.SubElement(
-        c,
-        "mxGeometry",
-        {
-            "x": x_rel,
-            "y": y_rel,
-            "relative": "1",
-            "as": "geometry",
-        },
-    )
-    ET.SubElement(
-        g,
-        "mxPoint",
-        {"x": _fmt_num(off_x), "y": _fmt_num(off_y), "as": "offset"},
+        cell_id,
+        CARD_LABEL_STYLE,
+        _font_label(text, FONT_SIZE),
+        lx,
+        ly,
+        CARD_LABEL_W,
+        CARD_LABEL_H,
     )
 
 
@@ -468,6 +634,364 @@ def _rel_attr_sides(r: dict[str, Any]) -> tuple[list[str], list[str]]:
     return left[:2], right[:2]
 
 
+def _build_undirected_adj(relationships: list[dict[str, Any]]) -> dict[str, set[str]]:
+    adj: dict[str, set[str]] = {}
+    for rel in relationships:
+        a, b = str(rel.get("from") or "").strip(), str(rel.get("to") or "").strip()
+        if not a or not b:
+            continue
+        adj.setdefault(a, set()).add(b)
+        adj.setdefault(b, set()).add(a)
+    return adj
+
+
+def _occupied_rows_at_col(grid: dict[str, tuple[int, int]], col: int) -> set[int]:
+    return {row for c, row in grid.values() if c == col}
+
+
+def _next_row_above(col: int, grid: dict[str, tuple[int, int]], base_row: int) -> int:
+    occupied = _occupied_rows_at_col(grid, col)
+    r = base_row - 1
+    while r in occupied:
+        r -= 1
+    return r
+
+
+def _next_row_below(col: int, grid: dict[str, tuple[int, int]], base_row: int) -> int:
+    occupied = _occupied_rows_at_col(grid, col)
+    r = base_row + 1
+    while r in occupied:
+        r += 1
+    return r
+
+
+def _occupied_cols_at_row(grid: dict[str, tuple[int, int]], row: int) -> set[int]:
+    return {col for col, r in grid.values() if r == row}
+
+
+def _next_col_left(col: int, grid: dict[str, tuple[int, int]], row: int) -> int:
+    occupied = _occupied_cols_at_row(grid, row)
+    c = col - 1
+    while c in occupied:
+        c -= 1
+    return c
+
+
+def _next_col_right(col: int, grid: dict[str, tuple[int, int]], row: int) -> int:
+    occupied = _occupied_cols_at_row(grid, row)
+    c = col + 1
+    while c in occupied:
+        c += 1
+    return c
+
+
+_LEFT_REL_HINTS = ("查看", "浏览", "查询", "阅读", "访问", "获取")
+_BELOW_REL_HINTS = ("创建", "拥有", "生成", "加入", "添加", "收藏", "包含")
+_RIGHT_REL_HINTS = ("发布", "提交", "发送", "推送")
+
+
+def _rel_label(rel: dict[str, Any]) -> str:
+    return str(rel.get("label") or rel.get("name") or "").strip()
+
+
+def _preferred_attachment_side(rel_label: str, slot: int) -> str:
+    for hint in _LEFT_REL_HINTS:
+        if hint in rel_label:
+            return "left"
+    for hint in _BELOW_REL_HINTS:
+        if hint in rel_label:
+            return "below"
+    for hint in _RIGHT_REL_HINTS:
+        if hint in rel_label:
+            return "right"
+    return ("below", "left", "right")[slot % 3]
+
+
+def _layout_vertical_attachments(
+    spine: list[str],
+    names: list[str],
+    relationships: list[dict[str, Any]],
+) -> dict[str, tuple[int, int]]:
+    """按关系在主链实体正上/正下/左右放置支线实体，与列表顺序无关。"""
+    spine_set = set(spine)
+    name_set = set(names)
+    grid: dict[str, tuple[int, int]] = {}
+    for idx, name in enumerate(spine):
+        grid[name] = (idx, 0)
+    placed = set(spine)
+
+    outgoing: dict[str, list[tuple[str, str]]] = {}
+    for rel in relationships:
+        fr = str(rel.get("from") or "").strip()
+        to = str(rel.get("to") or "").strip()
+        if not fr or not to or fr == to:
+            continue
+        if fr not in name_set or to not in name_set:
+            continue
+        if fr in spine_set and to not in spine_set:
+            outgoing.setdefault(fr, []).append((to, _rel_label(rel)))
+
+    for anchor in spine:
+        items = outgoing.get(anchor, [])
+        side_slot = 0
+        for to, label in items:
+            if to in placed:
+                continue
+            side = _preferred_attachment_side(label, side_slot)
+            side_slot += 1
+            fcol, frow = grid[anchor]
+            if side == "left":
+                grid[to] = (_next_col_left(fcol, grid, frow), frow)
+            elif side == "right":
+                grid[to] = (_next_col_right(fcol, grid, frow), frow)
+            else:
+                grid[to] = (fcol, _next_row_below(fcol, grid, frow))
+            placed.add(to)
+
+    for _ in range(max(len(names) * 2, 1)):
+        progressed = False
+        for rel in relationships:
+            fr = str(rel.get("from") or "").strip()
+            to = str(rel.get("to") or "").strip()
+            if not fr or not to or fr == to:
+                continue
+            if fr not in name_set or to not in name_set:
+                continue
+
+            if to in placed and fr not in placed and fr not in spine_set:
+                tcol, trow = grid[to]
+                grid[fr] = (tcol, _next_row_above(tcol, grid, trow))
+                placed.add(fr)
+                progressed = True
+            elif fr in placed and to not in placed and to not in spine_set:
+                fcol, frow = grid[fr]
+                grid[to] = (fcol, _next_row_below(fcol, grid, frow))
+                placed.add(to)
+                progressed = True
+        if not progressed:
+            break
+    return grid
+
+
+def _find_main_chain(hub: str, names: list[str], relationships: list[dict[str, Any]]) -> list[str]:
+    directed: dict[str, list[str]] = {}
+    undirected = _build_undirected_adj(relationships)
+    for rel in relationships:
+        fr = str(rel.get("from") or "").strip()
+        to = str(rel.get("to") or "").strip()
+        if fr and to:
+            directed.setdefault(fr, []).append(to)
+
+    chain = [hub]
+    visited = {hub}
+    current = hub
+    while True:
+        candidates = [n for n in directed.get(current, []) if n in names and n not in visited]
+        if not candidates:
+            break
+        nxt = max(
+            candidates,
+            key=lambda n: (
+                len([m for m in directed.get(n, []) if m in names and m not in visited]),
+                len(undirected.get(n, set())),
+                len(n),
+            ),
+        )
+        chain.append(nxt)
+        visited.add(nxt)
+        current = nxt
+    return chain
+
+
+def _layout_top_row(
+    off_spine: list[str],
+    spine: list[str],
+    relationships: list[dict[str, Any]],
+) -> dict[str, tuple[int, int]]:
+    result: dict[str, tuple[int, int]] = {}
+    if not off_spine:
+        return result
+
+    spine_cols = {name: idx for idx, name in enumerate(spine)}
+    hub_col = spine_cols.get(spine[0], 0)
+
+    if "商品" in off_spine:
+        result["商品"] = (hub_col, -1)
+    if "评价" in off_spine:
+        order_col = spine_cols.get("订单", hub_col + 1)
+        result["评价"] = (order_col, -1)
+    if "分类" in off_spine:
+        product_col = result.get("商品", (hub_col, -1))[0]
+        result["分类"] = (product_col - 1, -1)
+
+    remaining = [n for n in off_spine if n not in result]
+    used_cols = {c for c, _ in result.values()}
+    col = hub_col - 2
+    for name in remaining:
+        while col in used_cols:
+            col -= 1
+        result[name] = (col, -1)
+        used_cols.add(col)
+        col -= 1
+    return result
+
+
+def _layout_grid(
+    names: list[str],
+    sizes: dict[str, tuple[float, float]],
+    relationships: list[dict[str, Any]],
+    hub: str,
+) -> dict[str, tuple[float, float, float, float]]:
+    """网格布局：主链水平展开，与主链有关系的实体按关系叠放在正上/正下方。"""
+    spine = _find_main_chain(hub, names, relationships)
+    grid = _layout_vertical_attachments(spine, names, relationships)
+    placed = set(grid.keys())
+
+    off_spine = [n for n in names if n not in placed]
+    for name, pos in _layout_top_row(off_spine, spine, relationships).items():
+        if name not in grid:
+            grid[name] = pos
+
+    for name in names:
+        if name not in grid:
+            max_col = max((c for c, _ in grid.values()), default=0)
+            grid[name] = (max_col + 1, 1)
+
+    by_col: dict[int, list[str]] = {}
+    for name, (col, _row) in grid.items():
+        by_col.setdefault(col, []).append(name)
+
+    pos: dict[str, tuple[float, float, float, float]] = {}
+    for col, ents in by_col.items():
+        max_w = max(sizes[n][0] for n in ents)
+        col_center_x = GRID_ORIGIN_X + col * GRID_H_SPACING + max_w / 2.0
+        for name in ents:
+            _col, row = grid[name]
+            w, h = sizes[name]
+            x = col_center_x - w / 2.0
+            y = GRID_ORIGIN_Y + row * GRID_V_SPACING
+            pos[name] = (x, y, w, h)
+    return pos
+
+
+def _diamond_candidates(
+    from_pos: dict[str, float], to_pos: dict[str, float], rw: float, rh: float
+) -> list[tuple[float, float, bool]]:
+    from_cx, from_cy = from_pos["center_x"], from_pos["center_y"]
+    to_cx, to_cy = to_pos["center_x"], to_pos["center_y"]
+    dx, dy = to_cx - from_cx, to_cy - from_cy
+    candidates: list[tuple[float, float, bool]] = []
+
+    if abs(dy) <= from_pos["height"] * 0.8:
+        candidates.append(((from_cx + to_cx) / 2 - rw / 2, (from_cy + to_cy) / 2 - rh / 2, False))
+    elif abs(dx) <= from_pos["width"] * 0.8:
+        candidates.append(((from_cx + to_cx) / 2 - rw / 2, (from_cy + to_cy) / 2 - rh / 2, False))
+    else:
+        ex, ey = _l_elbow_point(from_pos, to_pos)
+        candidates.append((ex - rw / 2, ey - rh / 2, False))
+        if abs(dx) >= abs(dy):
+            candidates.append((
+                from_pos["x"] + from_pos["width"] + DIAMOND_GAP,
+                from_cy - rh / 2,
+                False,
+            ))
+            candidates.append((
+                (from_cx + to_cx) / 2 - rw / 2,
+                from_cy - rh / 2,
+                False,
+            ))
+        else:
+            if dy > 0:
+                gap_y = from_pos["bottom_y"] + DIAMOND_GAP
+            else:
+                gap_y = from_pos["top_y"] - rh - DIAMOND_GAP
+            candidates.append((from_cx - rw / 2, gap_y, dy < 0))
+            candidates.append((
+                from_cx - rw / 2,
+                (from_cy + to_cy) / 2 - rh / 2,
+                dy < 0,
+            ))
+
+    seen: set[tuple[int, int]] = set()
+    unique: list[tuple[float, float, bool]] = []
+    for x, y, prefer_up in candidates:
+        key = (round(x), round(y))
+        if key not in seen:
+            seen.add(key)
+            unique.append((x, y, prefer_up))
+    return unique
+
+
+def _score_rhombus_box(
+    x: float,
+    y: float,
+    rw: float,
+    rh: float,
+    from_pos: dict[str, float],
+    to_pos: dict[str, float],
+    occupied: list[tuple[float, float, float, float]],
+) -> float:
+    score = 0.0
+    box = (x, y, x + rw, y + rh)
+    for ob in occupied:
+        if _overlap(box, ob, pad=16.0):
+            score += 1000.0
+    cands = _diamond_candidates(from_pos, to_pos, rw, rh)
+    if cands:
+        ideal_x, ideal_y, _ = cands[0]
+        score += abs(x - ideal_x) * 0.2 + abs(y - ideal_y) * 0.3
+    return score
+
+
+def _find_best_rhombus_position(
+    from_pos: dict[str, float],
+    to_pos: dict[str, float],
+    rw: float,
+    rh: float,
+    occupied: list[tuple[float, float, float, float]],
+) -> tuple[float, float]:
+    best_xy: tuple[float, float] | None = None
+    best_score = float("inf")
+    for base_x, base_y, prefer_up in _diamond_candidates(from_pos, to_pos, rw, rh):
+        r_box = (base_x, base_y, base_x + rw, base_y + rh)
+        nudged = _nudge_until_free(
+            r_box,
+            occupied,
+            dir_x=0.0,
+            dir_y=-1.0 if prefer_up else 1.0,
+            step=max(36.0, rh * 0.6),
+            tries=30,
+            pad=16.0,
+        )
+        nx, ny = nudged[0], nudged[1]
+        score = _score_rhombus_box(nx, ny, rw, rh, from_pos, to_pos, occupied)
+        if score < best_score:
+            best_score = score
+            best_xy = (nx, ny)
+    if best_xy is None:
+        cands = _diamond_candidates(from_pos, to_pos, rw, rh)
+        if cands:
+            return cands[0][0], cands[0][1]
+        return from_pos["center_x"] - rw / 2, from_pos["center_y"] - rh / 2
+    return best_xy
+
+
+def _sort_relationships_for_diamonds(
+    rels: list[tuple[str, str, str, str, str, list[str], list[str]]],
+    pos: dict[str, tuple[float, float, float, float]],
+) -> list[tuple[str, str, str, str, str, list[str], list[str]]]:
+    def sort_key(item: tuple[str, str, str, str, str, list[str], list[str]]) -> tuple[int, float]:
+        fr, to, *_ = item
+        x1, y1, w1, h1 = pos[fr]
+        x2, y2, w2, h2 = pos[to]
+        dy = abs((y1 + h1 / 2) - (y2 + h2 / 2))
+        dx = abs((x1 + w1 / 2) - (x2 + w2 / 2))
+        same_row = dy <= h1 * 0.8
+        return (0 if same_row else 1, dx + dy)
+
+    return sorted(rels, key=sort_key)
+
+
 def build_mxgraph(cfg: dict[str, Any]) -> tuple[ET.Element, int, int]:
     entities_raw: list[dict[str, Any]] = list(cfg.get("entities") or [])
     rels_raw: list[dict[str, Any]] = list(cfg.get("relationships") or [])
@@ -515,23 +1039,27 @@ def build_mxgraph(cfg: dict[str, Any]) -> tuple[ET.Element, int, int]:
     pw, ph = int(cfg.get("pageWidth") or DEFAULT_PAGE_W), int(cfg.get("pageHeight") or DEFAULT_PAGE_H)
     rel_endpoints = [(fr, to) for fr, to, _, _, _, _, _ in rels] if rels else []
     hub = _choose_hub(names, rel_endpoints, cfg)
-    ring_scale = float(cfg.get("ring_scale", 1.08))
-    lane = float(cfg.get("relationship_lane_spacing", 48.0))
-    others_raw = [n for n in names if n != hub]
-    order_mode = str(cfg.get("satellite_order", "graph")).strip().lower()
-    if order_mode == "json":
-        others_ord = others_raw
+    layout_mode = str(cfg.get("layout", "grid")).strip().lower()
+    if layout_mode == "hub":
+        ring_scale = float(cfg.get("ring_scale", 1.08))
+        others_raw = [n for n in names if n != hub]
+        order_mode = str(cfg.get("satellite_order", "graph")).strip().lower()
+        if order_mode == "json":
+            others_ord = others_raw
+        else:
+            others_ord = _order_satellites_graph(hub, others_raw, rel_endpoints)
+        pos = _layout_hub(
+            names,
+            sizes,
+            hub,
+            others_ord,
+            float(pw),
+            float(ph),
+            ring_scale=ring_scale,
+        )
     else:
-        others_ord = _order_satellites_graph(hub, others_raw, rel_endpoints)
-    pos = _layout_hub(
-        names,
-        sizes,
-        hub,
-        others_ord,
-        float(pw),
-        float(ph),
-        ring_scale=ring_scale,
-    )
+        pos = _layout_grid(names, sizes, rels_raw, hub)
+    lane = float(cfg.get("relationship_lane_spacing", 48.0))
     hub_x, hub_y, hub_w, hub_h = pos[hub]
     hub_cx, hub_cy = _rect_center(hub_x, hub_y, hub_w, hub_h)
 
@@ -564,55 +1092,56 @@ def build_mxgraph(cfg: dict[str, Any]) -> tuple[ET.Element, int, int]:
     rh_extrema: list[tuple[float, float, float, float]] = []
 
     pair_counts: dict[tuple[str, str], int] = {}
-    for fr, to, rel_label, c_from, c_to, left_attrs, right_attrs in rels:
+    for fr, to, rel_label, c_from, c_to, left_attrs, right_attrs in _sort_relationships_for_diamonds(rels, pos):
         x1, y1, w1, h1 = pos[fr]
         x2, y2, w2, h2 = pos[to]
-        rcx1, rcy1 = _rect_center(x1, y1, w1, h1)
-        rcx2, rcy2 = _rect_center(x2, y2, w2, h2)
-        key = (fr, to) if fr <= to else (to, fr)
-        idx = pair_counts.get(key, 0)
-        pair_counts[key] = idx + 1
-        dx, dy = rcx2 - rcx1, rcy2 - rcy1
-        ln = math.hypot(dx, dy) or 1.0
-        ox, oy = -dy / ln, dx / ln
-        # 对非中心关系，优先让法线方向"朝外"（远离 hub）
-        mid0x, mid0y = (rcx1 + rcx2) / 2.0, (rcy1 + rcy2) / 2.0
-        hx, hy = mid0x - hub_cx, mid0y - hub_cy
-        if (fr != hub and to != hub) and (ox * hx + oy * hy) < 0:
-            ox, oy = -ox, -oy
-        # 将法线方向对齐到水平/垂直/45度
-        ox, oy = _snap_to_orthogonal(ox, oy)
-        off = float(idx) * lane
+        from_pos = _conn_pos(x1, y1, w1, h1)
+        to_pos = _conn_pos(x2, y2, w2, h2)
         rw, rh = _rhombus_size(rel_label)
-        mx = mid0x + ox * off
-        my = mid0y + oy * off
-        # 对非中心关系增加外向偏移，避免关系回到用户一侧
-        if fr != hub and to != hub:
-            outward_bias = float(cfg.get("relationship_outward_bias", 120.0))
-            hv = math.hypot(hx, hy) or 1.0
-            mx += (hx / hv) * outward_bias
-            my += (hy / hv) * outward_bias
-        rx = mx - rw / 2.0
-        ry = my - rh / 2.0
-        # 菱形先做避让，减少与实体/已放置菱形的重叠
-        r_box = _nudge_until_free(
-            (rx, ry, rx + rw, ry + rh),
-            occupied,
-            dir_x=ox,
-            dir_y=oy,
-            step=max(36.0, lane * 0.7),
-            tries=24,
-            pad=16.0,
-        )
-        rx, ry = r_box[0], r_box[1]
-        mx, my = (rx + rw / 2.0), (ry + rh / 2.0)
+
+        if layout_mode == "hub":
+            key = (fr, to) if fr <= to else (to, fr)
+            idx = pair_counts.get(key, 0)
+            pair_counts[key] = idx + 1
+            rcx1, rcy1 = from_pos["center_x"], from_pos["center_y"]
+            rcx2, rcy2 = to_pos["center_x"], to_pos["center_y"]
+            dx, dy = rcx2 - rcx1, rcy2 - rcy1
+            ln = math.hypot(dx, dy) or 1.0
+            ox, oy = -dy / ln, dx / ln
+            mid0x, mid0y = (rcx1 + rcx2) / 2.0, (rcy1 + rcy2) / 2.0
+            hx, hy = mid0x - hub_cx, mid0y - hub_cy
+            if (fr != hub and to != hub) and (ox * hx + oy * hy) < 0:
+                ox, oy = -ox, -oy
+            ox, oy = _snap_to_orthogonal(ox, oy)
+            off = float(idx) * lane
+            mx = mid0x + ox * off
+            my = mid0y + oy * off
+            if fr != hub and to != hub:
+                outward_bias = float(cfg.get("relationship_outward_bias", 120.0))
+                hv = math.hypot(hx, hy) or 1.0
+                mx += (hx / hv) * outward_bias
+                my += (hy / hv) * outward_bias
+            rx = mx - rw / 2.0
+            ry = my - rh / 2.0
+            r_box = _nudge_until_free(
+                (rx, ry, rx + rw, ry + rh),
+                occupied,
+                dir_x=ox,
+                dir_y=oy,
+                step=max(36.0, lane * 0.7),
+                tries=24,
+                pad=16.0,
+            )
+            rx, ry = r_box[0], r_box[1]
+        else:
+            rx, ry = _find_best_rhombus_position(from_pos, to_pos, rw, rh, occupied)
+
+        mx, my = rx + rw / 2.0, ry + rh / 2.0
         rh_extrema.append((rx, ry, rx + rw, ry + rh))
         occupied.append((rx, ry, rx + rw, ry + rh))
 
+        in_idx, out_idx = _pick_connection_corners(rx, ry, rw, rh, from_pos, to_pos)
         corners = _rhombus_corners(rx, ry, rw, rh)
-        # 关系连线按"角点进出"：一角进，对角出
-        in_idx = _nearest_corner_idx(corners, rcx1, rcy1)
-        out_idx = _opp_corner_idx(in_idx)
         tx1, ty1 = corners[in_idx]
         sx1, sy1 = _rect_border_toward(x1, y1, w1, h1, tx1, ty1)
         sx2, sy2 = corners[out_idx]
@@ -623,15 +1152,20 @@ def build_mxgraph(cfg: dict[str, Any]) -> tuple[ET.Element, int, int]:
             root,
             rid,
             RHOMBUS_STYLE,
-            _font_label(rel_label, 14),
+            _font_label(rel_label, FONT_SIZE),
             rx,
             ry,
             rw,
             rh,
         )
 
-        st1 = EDGE_PLAIN + _exit_attrs(x1, y1, w1, h1, tx1, ty1)
+        st1 = (
+            EDGE_PLAIN
+            + _exit_attrs(x1, y1, w1, h1, tx1, ty1)
+            + _rhombus_corner_attrs(in_idx, is_entry=True)
+        )
         e1 = nid()
+        wp1 = _orthogonal_waypoint(sx1, sy1, tx1, ty1)
         _mxcell_edge_points(
             root,
             e1,
@@ -644,23 +1178,19 @@ def build_mxgraph(cfg: dict[str, Any]) -> tuple[ET.Element, int, int]:
             source=eid[fr],
             target=rid,
         )
-        loff = 14.0
-        _mxcell_edge_label(
-            root,
-            e1,
-            nid(),
-            c_from,
-            x_rel="0.22",
-            y_rel="1",
-            off_x=ox * loff,
-            off_y=oy * loff,
-        )
+        _mxcell_cardinality_label(root, nid(), c_from, sx1, sy1, tx1, ty1, wp1)
 
+        st2 = (
+            EDGE_PLAIN
+            + _rhombus_corner_attrs(out_idx, is_entry=False)
+            + _entry_attrs(x2, y2, w2, h2, sx2, sy2)
+        )
         e2 = nid()
+        wp2 = _orthogonal_waypoint(sx2, sy2, tx2, ty2)
         _mxcell_edge_points(
             root,
             e2,
-            EDGE_PLAIN,
+            st2,
             "",
             sx2,
             sy2,
@@ -669,16 +1199,7 @@ def build_mxgraph(cfg: dict[str, Any]) -> tuple[ET.Element, int, int]:
             source=rid,
             target=eid[to],
         )
-        _mxcell_edge_label(
-            root,
-            e2,
-            nid(),
-            c_to,
-            x_rel="0.78",
-            y_rel="1",
-            off_x=ox * loff,
-            off_y=oy * loff,
-        )
+        _mxcell_cardinality_label(root, nid(), c_to, sx2, sy2, tx2, ty2, wp2)
 
         # 关系属性（椭圆）：挂在另外两个角（非进/出角）
         attr_w, attr_h = 120.0, 54.0
@@ -718,7 +1239,7 @@ def build_mxgraph(cfg: dict[str, Any]) -> tuple[ET.Element, int, int]:
                 root,
                 a_id,
                 REL_ATTR_ELLIPSE_STYLE,
-                _font_label(txt, 14),
+                _font_label(txt, FONT_SIZE),
                 a_box[0],
                 a_box[1],
                 attr_w,
@@ -763,7 +1284,7 @@ def build_mxgraph(cfg: dict[str, Any]) -> tuple[ET.Element, int, int]:
                 root,
                 a_id,
                 REL_ATTR_ELLIPSE_STYLE,
-                _font_label(txt, 14),
+                _font_label(txt, FONT_SIZE),
                 a_box[0],
                 a_box[1],
                 attr_w,

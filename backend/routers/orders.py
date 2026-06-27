@@ -53,12 +53,25 @@ def create_order(body: CreateOrderBody, user: dict = Depends(require_user)):
             (order_id, user["id"], pkg["id"], pkg["price"]),
         )
 
-        expire_time = (datetime.now() + timedelta(days=pkg["valid_days"])).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        # 更新 VIP 有效期（累加）
+        now = datetime.now()
+        cur.execute("SELECT vip_expire_time FROM user WHERE id = %s", (user["id"],))
+        user_row = cur.fetchone()
+
+        if user_row and user_row.get("vip_expire_time"):
+            current_expire = user_row["vip_expire_time"]
+            if isinstance(current_expire, datetime) and current_expire > now:
+                # 从当前过期时间开始累加
+                expire_time = (current_expire + timedelta(days=float(pkg["valid_days"]))).strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                # 已过期，从现在开始
+                expire_time = (now + timedelta(days=float(pkg["valid_days"]))).strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            expire_time = (now + timedelta(days=float(pkg["valid_days"]))).strftime("%Y-%m-%d %H:%M:%S")
+
         cur.execute(
-            "UPDATE user SET vip_type = %s, vip_expire_time = %s, remain_count = remain_count + %s WHERE id = %s",
-            (pkg["type"], expire_time, pkg["total_count"], user["id"]),
+            "UPDATE user SET vip_type = %s, vip_expire_time = %s WHERE id = %s",
+            (pkg["type"], expire_time, user["id"]),
         )
         cur.execute(
             "UPDATE order_record SET pay_status = %s, finish_time = NOW() WHERE order_id = %s",

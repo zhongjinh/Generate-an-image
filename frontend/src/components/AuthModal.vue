@@ -17,6 +17,7 @@ const loading = ref(false)
 const codeSending = ref(false)
 const codeCountdown = ref(0)
 let countdownTimer = null
+let mouseDownTarget = null
 
 function clearMessages() {
   formError.value = ''
@@ -40,8 +41,17 @@ function close() {
   regCode.value = ''
 }
 
+function onOverlayMouseDown(e) {
+  // 记录鼠标按下的目标
+  mouseDownTarget = e.target
+}
+
 function onOverlayClick(e) {
-  if (e.target.classList.contains('modal-overlay')) close()
+  // 只有当鼠标按下和释放都在 overlay 上时才关闭
+  if (e.target.classList.contains('modal-overlay') && mouseDownTarget === e.target) {
+    close()
+  }
+  mouseDownTarget = null
 }
 
 function startCountdown(seconds = 60) {
@@ -136,7 +146,7 @@ defineExpose({ open })
 </script>
 
 <template>
-  <div v-if="showModal" class="modal-overlay" @click="onOverlayClick">
+  <div v-if="showModal" class="modal-overlay" @mousedown="onOverlayMouseDown" @click="onOverlayClick">
     <div class="auth-modal-wrap">
       <div class="auth-modal">
         <button type="button" class="modal-close" aria-label="关闭" @click="close">&times;</button>
@@ -184,7 +194,6 @@ defineExpose({ open })
             <button type="submit" class="btn-auth" :disabled="loading">
               {{ loading ? '处理中...' : '登录' }}
             </button>
-            <p class="auth-tip">管理员仍可使用用户名 <strong>admin</strong> 登录</p>
           </form>
 
           <form v-show="tab === 'register'" @submit="doRegister">

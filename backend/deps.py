@@ -23,12 +23,18 @@ def get_current_user(authorization: str | None = Header(default=None)) -> dict |
     payload = verify_token(token)
     if not payload or "id" not in payload:
         return None
+
     conn = get_db()
     with conn.cursor() as cur:
         cur.execute("SELECT * FROM user WHERE id = %s", (payload["id"],))
         row = cur.fetchone()
     conn.close()
-    return _row_dict(row) if row else None
+
+    if not row:
+        return None
+    if int(payload.get("tv", 0)) != int(row.get("token_version") or 0):
+        return None
+    return _row_dict(row)
 
 
 def require_user(authorization: str | None = Header(default=None)) -> dict:
@@ -42,6 +48,14 @@ def require_user(authorization: str | None = Header(default=None)) -> dict:
 
 def require_admin(authorization: str | None = Header(default=None)) -> dict:
     user = require_user(authorization)
-    if not user.get("is_admin"):
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute("SELECT is_admin, is_disabled FROM user WHERE id = %s", (user["id"],))
+        row = cur.fetchone()
+    conn.close()
+    if not row or not row.get("is_admin"):
         raise HTTPException(status_code=403, detail={"error": "无管理员权限"})
+    if row.get("is_disabled"):
+        raise HTTPException(status_code=403, detail={"error": "账号已被禁用"})
+    user["is_admin"] = True
     return user

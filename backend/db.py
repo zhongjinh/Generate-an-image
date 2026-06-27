@@ -9,6 +9,7 @@ import pymysql.cursors
 
 from backend.config import (
     ADMIN_PASSWORD,
+    ADMIN_USERNAME,
     MYSQL_DATABASE,
     MYSQL_HOST,
     MYSQL_PASSWORD,
@@ -18,10 +19,13 @@ from backend.config import (
 )
 
 DEFAULT_PACKAGES = [
-    ("日卡", "day", 9.9, 50, 1),
-    ("周卡", "week", 49.9, 300, 7),
-    ("月卡", "month", 149.9, 1500, 30),
-    ("年卡", "year", 999.9, 20000, 365),
+    ("半小时", "half_hour", 1.9, 0, 0.0208),   # 30分钟 = 0.0208天
+    ("1小时", "hour", 2.9, 0, 0.0417),         # 1小时 = 0.0417天
+    ("2小时", "two_hour", 4.9, 0, 0.0833),     # 2小时 = 0.0833天
+    ("日卡", "day", 6.9, 0, 1),
+    ("周卡", "week", 29.9, 0, 7),
+    ("月卡", "month", 69.9, 0, 30),
+    ("年卡", "year", 399.9, 0, 365),
 ]
 
 
@@ -107,11 +111,45 @@ def init_db() -> None:
                 `type` VARCHAR(50) NOT NULL,
                 `price` DECIMAL(10,2) NOT NULL,
                 `total_count` INT NOT NULL,
-                `valid_days` INT NOT NULL,
+                `valid_days` DECIMAL(10,4) NOT NULL,
+                `buy_link` VARCHAR(500) DEFAULT '',
                 `is_enable` TINYINT DEFAULT 1
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
+
+        # 迁移：修改 valid_days 为 DECIMAL 类型
+        cur.execute(
+            f"SELECT DATA_TYPE FROM information_schema.COLUMNS "
+            f"WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'vip_package' AND COLUMN_NAME = 'valid_days'",
+            (MYSQL_DATABASE,),
+        )
+        col_type = cur.fetchone()
+        if col_type and col_type["DATA_TYPE"] == "int":
+            cur.execute("ALTER TABLE `vip_package` MODIFY COLUMN `valid_days` DECIMAL(10,4) NOT NULL")
+
+        # 迁移：为 vip_package 添加 buy_link 字段
+        cur.execute(
+            f"SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS "
+            f"WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'vip_package' AND COLUMN_NAME = 'buy_link'",
+            (MYSQL_DATABASE,),
+        )
+        if cur.fetchone()["cnt"] == 0:
+            cur.execute("ALTER TABLE `vip_package` ADD COLUMN `buy_link` VARCHAR(500) DEFAULT ''")
+
+        # 迁移：安全字段 token_version / login_failures / locked_until
+        for col, ddl in (
+            ("token_version", "ALTER TABLE `user` ADD COLUMN `token_version` INT DEFAULT 0"),
+            ("login_failures", "ALTER TABLE `user` ADD COLUMN `login_failures` INT DEFAULT 0"),
+            ("locked_until", "ALTER TABLE `user` ADD COLUMN `locked_until` DATETIME DEFAULT NULL"),
+        ):
+            cur.execute(
+                f"SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS "
+                f"WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'user' AND COLUMN_NAME = %s",
+                (MYSQL_DATABASE, col),
+            )
+            if cur.fetchone()["cnt"] == 0:
+                cur.execute(ddl)
 
         cur.execute(
             """
@@ -122,10 +160,57 @@ def init_db() -> None:
                 `package_id` INT NOT NULL,
                 `pay_amount` DECIMAL(10,2) NOT NULL,
                 `pay_status` VARCHAR(20) DEFAULT 'pending',
+                `pay_method` VARCHAR(20) DEFAULT '',
+                `trade_no` VARCHAR(64) DEFAULT '',
                 `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
                 `finish_time` DATETIME DEFAULT NULL,
+                `notify_time` DATETIME DEFAULT NULL,
                 FOREIGN KEY (`user_id`) REFERENCES `user`(`id`),
                 FOREIGN KEY (`package_id`) REFERENCES `vip_package`(`id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            """
+        )
+
+        # 迁移：为旧表添加新字段
+        for col, col_def in [
+            ("pay_method", "VARCHAR(20) DEFAULT ''"),
+            ("trade_no", "VARCHAR(64) DEFAULT ''"),
+            ("notify_time", "DATETIME DEFAULT NULL"),
+        ]:
+            cur.execute(
+                f"SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS "
+                f"WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'order_record' AND COLUMN_NAME = %s",
+                (MYSQL_DATABASE, col),
+            )
+            if cur.fetchone()["cnt"] == 0:
+                cur.execute(f"ALTER TABLE `order_record` ADD COLUMN `{col}` {col_def}")
+
+        # 迁移：为 user 表添加邀请相关字段
+        for col, col_def in [
+            ("invite_code", "VARCHAR(32) DEFAULT ''"),
+            ("invite_expire_time", "DATETIME DEFAULT NULL"),
+        ]:
+            cur.execute(
+                f"SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS "
+                f"WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'user' AND COLUMN_NAME = %s",
+                (MYSQL_DATABASE, col),
+            )
+            if cur.fetchone()["cnt"] == 0:
+                cur.execute(f"ALTER TABLE `user` ADD COLUMN `{col}` {col_def}")
+
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS `redeem_code` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `code` VARCHAR(32) NOT NULL UNIQUE,
+                `package_id` INT NOT NULL,
+                `valid_days` DECIMAL(10,4) NOT NULL,
+                `is_used` TINYINT DEFAULT 0,
+                `used_by` INT DEFAULT NULL,
+                `used_at` DATETIME DEFAULT NULL,
+                `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX `idx_rc_code` (`code`),
+                INDEX `idx_rc_used` (`is_used`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
@@ -145,23 +230,47 @@ def init_db() -> None:
             """
         )
 
-        # 插入默认 VIP 套餐
+        # 插入/更新默认 VIP 套餐
         cur.execute("SELECT COUNT(*) AS cnt FROM `vip_package`")
-        if cur.fetchone()["cnt"] == 0:
+        existing_count = cur.fetchone()["cnt"]
+
+        if existing_count == 0:
+            # 首次插入
             cur.executemany(
                 "INSERT INTO `vip_package` (`package_name`, `type`, `price`, `total_count`, `valid_days`) "
                 "VALUES (%s, %s, %s, %s, %s)",
                 DEFAULT_PACKAGES,
             )
+        else:
+            # 更新现有套餐（根据 type 匹配）
+            for pkg in DEFAULT_PACKAGES:
+                cur.execute(
+                    "UPDATE `vip_package` SET `package_name` = %s, `price` = %s, `total_count` = %s, `valid_days` = %s "
+                    "WHERE `type` = %s",
+                    (pkg[0], pkg[2], pkg[3], pkg[4], pkg[1]),
+                )
+            # 如果套餐数量不同，插入缺失的
+            if existing_count < len(DEFAULT_PACKAGES):
+                existing_types = set()
+                cur.execute("SELECT `type` FROM `vip_package`")
+                for row in cur.fetchall():
+                    existing_types.add(row["type"])
+                for pkg in DEFAULT_PACKAGES:
+                    if pkg[1] not in existing_types:
+                        cur.execute(
+                            "INSERT INTO `vip_package` (`package_name`, `type`, `price`, `total_count`, `valid_days`) "
+                            "VALUES (%s, %s, %s, %s, %s)",
+                            pkg,
+                        )
 
-        # 插入管理员账号
-        cur.execute("SELECT COUNT(*) AS cnt FROM `user` WHERE `username` = 'admin'")
+        # 插入管理员账号（用户名来自 ADMIN_USERNAME，非固定 admin）
+        cur.execute("SELECT COUNT(*) AS cnt FROM `user` WHERE `is_admin` = 1")
         if cur.fetchone()["cnt"] == 0:
             from backend.auth import hash_password
 
             cur.execute(
                 "INSERT INTO `user` (`username`, `password`, `is_admin`, `remain_count`) VALUES (%s, %s, 1, %s)",
-                ("admin", hash_password(ADMIN_PASSWORD), 99999),
+                (ADMIN_USERNAME, hash_password(ADMIN_PASSWORD), 99999),
             )
 
     conn.commit()

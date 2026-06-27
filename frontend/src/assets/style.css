@@ -25,8 +25,8 @@ body {
   font-family: "Microsoft YaHei", "PingFang SC", -apple-system, sans-serif;
   background: var(--bg);
   color: var(--text);
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
+  overflow-y: auto;
 }
 
 /* Header */
@@ -54,14 +54,10 @@ body {
 .logo-icon {
   width: 28px;
   height: 28px;
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
-  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
+  flex-shrink: 0;
 }
 
 .nav-right {
@@ -134,7 +130,7 @@ body {
 /* Main layout */
 .main {
   display: flex;
-  height: calc(100vh - 56px);
+  min-height: calc(100vh - 56px);
 }
 
 /* Chart sidebar */

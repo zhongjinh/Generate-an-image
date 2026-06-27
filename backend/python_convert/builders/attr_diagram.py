@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import io
 import math
 import re
 import sys
@@ -368,11 +369,9 @@ def rebuild_diagram_xml(
         mx_root.append(node)
 
     ET.register_namespace("", "")
-    # 写出时保留 mxfile 声明式缩进
-    out = Path("_tmp_attr_out.xml")
-    tree.write(out, encoding="utf-8", xml_declaration=True)
-    text = out.read_text(encoding="utf-8")
-    out.unlink(missing_ok=True)
+    buf = io.BytesIO()
+    tree.write(buf, encoding="utf-8", xml_declaration=True)
+    text = buf.getvalue().decode("utf-8")
     # ElementTree 默认 ns0: 替换回无前缀（与原文件一致）
     text = text.replace("ns0:", "").replace(" xmlns:ns0=\"http://www.w3.org/1999/xhtml\"", "")
     if text.startswith("<?xml"):

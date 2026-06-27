@@ -9,7 +9,7 @@ import uvicorn
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from backend.config import ADMIN_PASSWORD, ENV, HOST, MYSQL_DATABASE, MYSQL_HOST, MYSQL_PORT, PORT, ROOT
+from backend.config import ADMIN_PASSWORD, ADMIN_USERNAME, ENV, HOST, MYSQL_DATABASE, MYSQL_HOST, MYSQL_PORT, PORT, ROOT
 from backend.converter import HAS_CONVERTER
 from backend.db import init_db
 
@@ -21,7 +21,7 @@ def main():
     print("=" * 50)
     print(f"目录: {ROOT}")
     print(f"数据库: MySQL {MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}")
-    print(f"管理员: admin / {ADMIN_PASSWORD}")
+    print(f"管理员: {ADMIN_USERNAME} / {'(见 .env)' if ENV == 'production' else ADMIN_PASSWORD}")
     print(f"转换模块: {'可用' if HAS_CONVERTER else '不可用'}")
     print(f"API: http://{HOST}:{PORT}/api/health")
     print(f"文档: http://{HOST}:{PORT}/api/docs")

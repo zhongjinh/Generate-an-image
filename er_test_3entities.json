@@ -1,0 +1,67 @@
+{
+  "title": "电商系统完整 ER 图",
+  "entities": [
+    {
+      "name": "用户",
+      "attributes": ["id", "username", "email", "password", "phone"]
+    },
+    {
+      "name": "订单",
+      "attributes": ["id", "user_id", "order_no", "total_amount", "status"]
+    },
+    {
+      "name": "商品",
+      "attributes": ["id", "name", "price", "stock", "category_id"]
+    },
+    {
+      "name": "订单详情",
+      "attributes": ["id", "order_id", "product_id", "quantity", "price"]
+    },
+    {
+      "name": "分类",
+      "attributes": ["id", "name", "parent_id", "sort_order"]
+    },
+    {
+      "name": "评价",
+      "attributes": ["id", "user_id", "product_id", "content", "rating"]
+    }
+  ],
+  "relationships": [
+    {
+      "from": "用户",
+      "to": "订单",
+      "type": "1:N",
+      "label": "创建"
+    },
+    {
+      "from": "订单",
+      "to": "订单详情",
+      "type": "1:N",
+      "label": "包含"
+    },
+    {
+      "from": "商品",
+      "to": "订单详情",
+      "type": "1:N",
+      "label": "属于"
+    },
+    {
+      "from": "分类",
+      "to": "商品",
+      "type": "1:N",
+      "label": "归类"
+    },
+    {
+      "from": "用户",
+      "to": "评价",
+      "type": "1:N",
+      "label": "发表"
+    },
+    {
+      "from": "商品",
+      "to": "评价",
+      "type": "1:N",
+      "label": "被评价"
+    }
+  ]
+}

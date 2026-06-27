@@ -90,9 +90,16 @@ def disable_user(user_id: int, _: dict = Depends(require_admin)):
         cur.execute("SELECT is_disabled FROM user WHERE id = %s", (user_id,))
         row = cur.fetchone()
         if row:
+            new_disabled = 0 if row["is_disabled"] else 1
             cur.execute(
-                "UPDATE user SET is_disabled = %s WHERE id = %s",
-                (0 if row["is_disabled"] else 1, user_id),
+                """
+                UPDATE user SET is_disabled = %s,
+                    token_version = token_version + 1,
+                    login_failures = 0,
+                    locked_until = NULL
+                WHERE id = %s
+                """,
+                (new_disabled, user_id),
             )
     conn.commit()
     conn.close()
@@ -104,6 +111,7 @@ class UpdatePackageBody(BaseModel):
     price: float | None = None
     total_count: int | None = None
     valid_days: int | None = None
+    buy_link: str | None = None
     is_enable: bool | None = None
 
 
@@ -115,7 +123,7 @@ def update_package(
     with conn.cursor() as cur:
         cur.execute(
             """
-            UPDATE vip_package SET package_name=%s, price=%s, total_count=%s, valid_days=%s, is_enable=%s
+            UPDATE vip_package SET package_name=%s, price=%s, total_count=%s, valid_days=%s, buy_link=%s, is_enable=%s
             WHERE id=%s
             """,
             (
@@ -123,6 +131,7 @@ def update_package(
                 body.price,
                 body.total_count,
                 body.valid_days,
+                body.buy_link or '',
                 1 if body.is_enable else 0,
                 package_id,
             ),
